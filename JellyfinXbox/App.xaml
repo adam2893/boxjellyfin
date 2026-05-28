@@ -1,0 +1,54 @@
+<Application
+    x:Class="JellyfinXbox.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:JellyfinXbox">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <ResourceDictionary Source="ms-appx:///Styles/AppStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!--            COLOR PALETTE                -->
+            <!-- ═══════════════════════════════════════ -->
+            <Color x:Key="SurfacePrimary">#0B0B0F</Color>
+            <Color x:Key="SurfaceSecondary">#141419</Color>
+            <Color x:Key="SurfaceTertiary">#1C1C24</Color>
+            <Color x:Key="SurfaceHover">#262630</Color>
+            <Color x:Key="SurfaceActive">#30303D</Color>
+            <Color x:Key="TextPrimary">#F0EFF4</Color>
+            <Color x:Key="TextSecondary">#9B99A4</Color>
+            <Color x:Key="TextMuted">#5E5D66</Color>
+            <Color x:Key="Accent">#6C63FF</Color>
+            <Color x:Key="AccentHover">#857CFF</Color>
+            <Color x:Key="AccentPressed">#554DE6</Color>
+            <Color x:Key="AccentGlow">#6C63FF40</Color>
+            <Color x:Key="Success">#34D399</Color>
+            <Color x:Key="Warning">#FBBF24</Color>
+            <Color x:Key="Error">#F87171</Color>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!--              BRUSHES                    -->
+            <!-- ═══════════════════════════════════════ -->
+            <SolidColorBrush x:Key="SurfacePrimaryBrush" Color="{StaticResource SurfacePrimary}" />
+            <SolidColorBrush x:Key="SurfaceSecondaryBrush" Color="{StaticResource SurfaceSecondary}" />
+            <SolidColorBrush x:Key="SurfaceTertiaryBrush" Color="{StaticResource SurfaceTertiary}" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="{StaticResource SurfaceHover}" />
+            <SolidColorBrush x:Key="SurfaceActiveBrush" Color="{StaticResource SurfaceActive}" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}" />
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMuted}" />
+            <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}" />
+            <SolidColorBrush x:Key="AccentHoverBrush" Color="{StaticResource AccentHover}" />
+            <SolidColorBrush x:Key="AccentPressedBrush" Color="{StaticResource AccentPressed}" />
+            <SolidColorBrush x:Key="AccentGlowBrush" Color="{StaticResource AccentGlow}" />
+            <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource Error}" />
+            <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Success}" />
+            <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource Warning}" />
+
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

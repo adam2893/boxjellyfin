@@ -1,0 +1,221 @@
+<Page
+    x:Class="JellyfinXbox.Views.HomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:JellyfinXbox.Views">
+
+    <ScrollViewer VerticalScrollBarVisibility="Hidden"
+                  HorizontalScrollMode="Disabled">
+        <StackPanel Padding="60 40 60 60" Spacing="48">
+
+            <!-- ═══════════════════════════════════════ -->
+            <!--          WELCOME HEADER                 -->
+            <!-- ═══════════════════════════════════════ -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Good evening"
+                               FontSize="36" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="What do you want to watch?"
+                               FontSize="18"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                </StackPanel>
+                <!-- User avatar -->
+                <PersonPicture Grid.Column="1"
+                               Width="48" Height="48" />
+            </Grid>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!--          CONTINUE WATCHING               -->
+            <!-- ═══════════════════════════════════════ -->
+            <StackPanel Visibility="{x:Bind ViewModel.HasContinueWatching, Mode=OneWay}"
+                        Spacing="20">
+                <TextBlock Text="Continue Watching"
+                           FontSize="24" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+
+                <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                              HorizontalScrollMode="Enabled"
+                              VerticalScrollMode="Disabled">
+                    <GridView ItemsSource="{x:Bind ViewModel.ContinueWatching}"
+                              SelectionMode="None"
+                              IsItemClickEnabled="True"
+                              ItemClick="MediaItem_Click">
+                        <GridView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="12" />
+                            </ItemsPanelTemplate>
+                        </GridView.ItemsPanel>
+                        <GridView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Width="320" Height="180"
+                                      CornerRadius="12"
+                                      Background="{StaticResource SurfaceTertiaryBrush}">
+                                    <!-- Poster -->
+                                    <Border CornerRadius="12">
+                                        <Image Stretch="UniformToFill" />
+                                    </Border>
+                                    <!-- Progress bar -->
+                                    <StackPanel VerticalAlignment="Bottom"
+                                                Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                                                Padding="12 8" Spacing="4">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <ProgressBar Value="{Binding UserData.PlayedPercentage}"
+                                                     Maximum="100"
+                                                     Visibility="{Binding UserData.PlayedPercentage, Converter={StaticResource NullToVisibilityConverter}}"
+                                                     Foreground="{StaticResource AccentBrush}"
+                                                     Background="{StaticResource SurfaceHoverBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </GridView.ItemTemplate>
+                    </GridView>
+                </ScrollViewer>
+            </StackPanel>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!--              NEXT UP                     -->
+            <!-- ═══════════════════════════════════════ -->
+            <StackPanel Visibility="{x:Bind ViewModel.HasNextUp, Mode=OneWay}"
+                        Spacing="20">
+                <TextBlock Text="Next Up"
+                           FontSize="24" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+
+                <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                              HorizontalScrollMode="Enabled"
+                              VerticalScrollMode="Disabled">
+                    <GridView ItemsSource="{x:Bind ViewModel.NextUp}"
+                              SelectionMode="None"
+                              IsItemClickEnabled="True"
+                              ItemClick="MediaItem_Click">
+                        <GridView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="12" />
+                            </ItemsPanelTemplate>
+                        </GridView.ItemsPanel>
+                        <GridView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Width="320" Height="180"
+                                      CornerRadius="12"
+                                      Background="{StaticResource SurfaceTertiaryBrush}">
+                                    <Border CornerRadius="12">
+                                        <Image Stretch="UniformToFill" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Bottom"
+                                                Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                                                Padding="12 8" Spacing="2">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding SeriesName}"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </GridView.ItemTemplate>
+                    </GridView>
+                </ScrollViewer>
+            </StackPanel>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!--           LATEST MOVIES                  -->
+            <!-- ═══════════════════════════════════════ -->
+            <StackPanel Visibility="{x:Bind ViewModel.LatestMovies.Count, Mode=OneWay, Converter={StaticResource CountToVisibilityConverter}}"
+                        Spacing="20">
+                <TextBlock Text="Latest Movies"
+                           FontSize="24" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+
+                <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                              HorizontalScrollMode="Enabled"
+                              VerticalScrollMode="Disabled">
+                    <GridView ItemsSource="{x:Bind ViewModel.LatestMovies}"
+                              SelectionMode="None"
+                              IsItemClickEnabled="True"
+                              ItemClick="MediaItem_Click">
+                        <GridView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="12" />
+                            </ItemsPanelTemplate>
+                        </GridView.ItemsPanel>
+                        <GridView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Width="160" Spacing="8">
+                                    <Border Width="160" Height="240"
+                                            CornerRadius="12"
+                                            Background="{StaticResource SurfaceTertiaryBrush}">
+                                        <Image Stretch="UniformToFill" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="13" FontWeight="Medium"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxLines="2" />
+                                    <TextBlock Text="{Binding ProductionYear}"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridView.ItemTemplate>
+                    </GridView>
+                </ScrollViewer>
+            </StackPanel>
+
+            <!-- ═══════════════════════════════════════ -->
+            <!--          LATEST SHOWS                    -->
+            <!-- ═══════════════════════════════════════ -->
+            <StackPanel Visibility="{x:Bind ViewModel.LatestShows.Count, Mode=OneWay, Converter={StaticResource CountToVisibilityConverter}}"
+                        Spacing="20">
+                <TextBlock Text="Latest Shows"
+                           FontSize="24" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+
+                <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                              HorizontalScrollMode="Enabled"
+                              VerticalScrollMode="Disabled">
+                    <GridView ItemsSource="{x:Bind ViewModel.LatestShows}"
+                              SelectionMode="None"
+                              IsItemClickEnabled="True"
+                              ItemClick="MediaItem_Click">
+                        <GridView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="12" />
+                            </ItemsPanelTemplate>
+                        </GridView.ItemsPanel>
+                        <GridView.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Width="160" Spacing="8">
+                                    <Border Width="160" Height="240"
+                                            CornerRadius="12"
+                                            Background="{StaticResource SurfaceTertiaryBrush}">
+                                        <Image Stretch="UniformToFill" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="13" FontWeight="Medium"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxLines="2" />
+                                    <TextBlock Text="{Binding ProductionYear}"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridView.ItemTemplate>
+                    </GridView>
+                </ScrollViewer>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,11 @@
+﻿bin/
+obj/
+AppPackages/
+*.suo
+*.user
+*.sln.docstates
+.vs/
+*.userosscache
+*.userprefs
+_ReSharper*/
+*.csproj.user
