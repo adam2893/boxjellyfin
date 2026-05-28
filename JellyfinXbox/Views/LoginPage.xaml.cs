@@ -1,4 +1,3 @@
-using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -21,6 +20,7 @@ public sealed partial class LoginPage : Page
         ViewModel = viewModel;
         _nav = nav;
         InitializeComponent();
+        Loaded += (s, e) => ServerUrlBox.Focus(FocusState.Programmatic);
     }
 
     private void ServerUrlBox_KeyDown(object sender, KeyRoutedEventArgs e)
