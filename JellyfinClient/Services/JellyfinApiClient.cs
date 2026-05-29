@@ -328,7 +328,8 @@ public class JellyfinApiClient
 
     public async Task<BaseItemDto?> GetItemAsync(string itemId)
     {
-        var url = $"/Users/{CurrentUser!.Id}/Items/{itemId}?Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes,People,Studios,Genres";
+        // UserLibraryController.cs: [HttpGet("Items/{itemId}")] with [FromQuery] Guid? userId
+        var url = $"/Items/{itemId}?userId={CurrentUser!.Id}&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes,People,Studios,Genres,Overview";
         try
         {
             return await _http.GetFromJsonAsync<BaseItemDto>(url, _jsonOpts);
@@ -445,7 +446,8 @@ public class JellyfinApiClient
     {
         try
         {
-            await _http.DeleteAsync($"/Users/{CurrentUser!.Id}/PlayedItems/{itemId}");
+            // PlaystateController.cs: [HttpPost("UserPlayedItems/{itemId}")] with [FromQuery] Guid? userId
+            await _http.PostAsync($"/UserPlayedItems/{itemId}?userId={CurrentUser!.Id}", null);
         }
         catch { }
     }
@@ -505,14 +507,20 @@ public class JellyfinApiClient
     public string GetBackdropUrl(string itemId, int index = 0, int? maxWidth = null)
     {
         var url = $"/Items/{itemId}/Images/Backdrop/{index}";
-        if (maxWidth.HasValue) url += $"?maxWidth={maxWidth.Value}";
+        var @params = new List<string>();
+        if (!string.IsNullOrEmpty(AccessToken)) @params.Add($"ApiKey={AccessToken}");
+        if (maxWidth.HasValue) @params.Add($"maxWidth={maxWidth.Value}");
+        if (@params.Count > 0) url += "?" + string.Join("&", @params);
         return url;
     }
 
     public string GetPersonImageUrl(string personId, int? maxWidth = null)
     {
         var url = $"/Items/{personId}/Images/Primary";
-        if (maxWidth.HasValue) url += $"?maxWidth={maxWidth.Value}";
+        var @params = new List<string>();
+        if (!string.IsNullOrEmpty(AccessToken)) @params.Add($"ApiKey={AccessToken}");
+        if (maxWidth.HasValue) @params.Add($"maxWidth={maxWidth.Value}");
+        if (@params.Count > 0) url += "?" + string.Join("&", @params);
         return url;
     }
 
