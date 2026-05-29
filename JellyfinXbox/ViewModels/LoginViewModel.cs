@@ -122,6 +122,7 @@ public class LoginViewModel : ObservableObject
                 return;
             }
 
+            ShellPage.SaveSession(_api);
             _password = string.Empty;
             OnPropertyChanged(nameof(Password));
             _nav.NavigateTo(typeof(HomePage));

@@ -69,6 +69,9 @@ public interface IJellyfinClient
     List<MediaStream> GetAudioStreams(MediaSourceInfo source);
     List<MediaStream> GetSubtitleStreams(MediaSourceInfo source);
 
+    // ── Session ────────────────────────────────────────────────
+    Task<bool> ValidateTokenAsync();
+
     // ── Events ──────────────────────────────────────────────────
     event Action? OnAuthenticationChanged;
     void RaiseAuthChanged();

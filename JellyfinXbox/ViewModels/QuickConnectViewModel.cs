@@ -109,6 +109,7 @@ public class QuickConnectViewModel : ObservableObject, IDisposable
                         _api.AccessToken = status.Authentication.AccessToken;
                         _api.CurrentUser = status.Authentication.User;
                         _api.ApplyAuth();
+                        ShellPage.SaveSession(_api);
                         _api.RaiseAuthChanged();
                         IsSuccess = true;
                         StatusMessage = $"Connected as {status.Authentication.User.Name}!";
@@ -127,6 +128,7 @@ public class QuickConnectViewModel : ObservableObject, IDisposable
                 {
                     _dispatcher.TryEnqueue(() =>
                     {
+                        ShellPage.SaveSession(_api);
                         IsSuccess = true;
                         StatusMessage = $"Connected as {authResult.User.Name}!";
                     });

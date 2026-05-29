@@ -1,3 +1,4 @@
+using Windows.Storage;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -10,6 +11,8 @@ namespace JellyfinXbox;
 public sealed partial class ShellPage : Page
 {
     private readonly NavigationService _nav;
+    private const string KeyServerUrl = "Jellyfin_ServerUrl";
+    private const string KeyAccessToken = "Jellyfin_AccessToken";
 
     public ShellPage(NavigationService nav)
     {
@@ -19,9 +22,12 @@ public sealed partial class ShellPage : Page
         Loaded += OnLoaded;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         var api = App.GetService<JellyfinApiClient>();
+
+        // Try restoring previous session (Wholphin-style)
+        var restored = await TryRestoreSessionAsync(api);
 
         if (!api.IsAuthenticated)
             _nav.NavigateTo(typeof(ConnectPage));
@@ -30,6 +36,65 @@ public sealed partial class ShellPage : Page
             HighlightNav("home");
             _nav.NavigateTo(typeof(HomePage));
         }
+    }
+
+    /// <summary>
+    /// Saves server URL and access token for next launch.
+    /// </summary>
+    public static void SaveSession(JellyfinApiClient api)
+    {
+        try
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values[KeyServerUrl] = api.ServerUrl ?? "";
+            settings.Values[KeyAccessToken] = api.AccessToken ?? "";
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Attempts to restore a previous session. Returns true on success.
+    /// </summary>
+    private static async System.Threading.Tasks.Task<bool> TryRestoreSessionAsync(JellyfinApiClient api)
+    {
+        try
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            var savedUrl = settings.Values[KeyServerUrl] as string;
+            var savedToken = settings.Values[KeyAccessToken] as string;
+
+            if (string.IsNullOrEmpty(savedUrl) || string.IsNullOrEmpty(savedToken))
+                return false;
+
+            api.SetServerUrl(savedUrl);
+            api.SetAccessToken(savedToken);
+
+            if (!await api.ValidateTokenAsync())
+            {
+                ClearSession();
+                api.Logout();
+                return false;
+            }
+
+            api.RaiseAuthChanged();
+            return true;
+        }
+        catch
+        {
+            ClearSession();
+            return false;
+        }
+    }
+
+    private static void ClearSession()
+    {
+        try
+        {
+            var settings = ApplicationData.Current.LocalSettings;
+            settings.Values.Remove(KeyServerUrl);
+            settings.Values.Remove(KeyAccessToken);
+        }
+        catch { }
     }
 
     private void NavButton_Click(object sender, RoutedEventArgs e)

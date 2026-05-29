@@ -39,6 +39,31 @@ public class JellyfinApiClient : IJellyfinClient
         ApplyAuth();
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // Session persistence (Wholphin-style restore)
+    // ═══════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Validates whether the current access token is still accepted by the server
+    /// by fetching public system info. Returns true if the token is valid.
+    /// </summary>
+    public async Task<bool> ValidateTokenAsync()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(ServerUrl) || string.IsNullOrEmpty(AccessToken))
+                return false;
+
+            var (info, _) = await GetServerInfoAsync();
+            if (info == null) return false;
+
+            ServerInfo = info;
+            var views = await GetViewsAsync();
+            return views.Count > 0;
+        }
+        catch { return false; }
+    }
+
     // X-Emby-Authorization header values
     private const string ClientName = "BoxJellyfin";
     private const string DeviceName = "Xbox";
