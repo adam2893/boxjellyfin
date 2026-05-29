@@ -260,7 +260,8 @@ public class JellyfinApiClient
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<ItemsResult>("/Users/Items/Views", _jsonOpts);
+            // Jellyfin endpoint: GET /UserViews (UserViewsController.cs, [HttpGet("UserViews")])
+            var result = await _http.GetFromJsonAsync<ItemsResult>("/UserViews", _jsonOpts);
             if (result?.Items == null) return new();
 
             return result.Items.Select(i => new ViewItem
@@ -268,10 +269,15 @@ public class JellyfinApiClient
                 Id = i.Id,
                 Name = i.Name,
                 Type = i.Type,
+                CollectionType = i.CollectionType,
                 ImageTags = i.ImageTags
             }).ToList();
         }
-        catch { return new(); }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[GetViews] Failed: {ex}");
+            return new();
+        }
     }
 
     public async Task<ItemsResult> GetItemsAsync(string parentId, string? sortBy = null, string? sortOrder = null,
@@ -485,6 +491,11 @@ public class JellyfinApiClient
     {
         var url = $"/Items/{itemId}/Images/{imageType}";
         var @params = new List<string>();
+
+        // Jellyfin requires ApiKey for image access via direct URL (not through HttpClient)
+        if (!string.IsNullOrEmpty(AccessToken))
+            @params.Add($"ApiKey={AccessToken}");
+
         if (maxWidth.HasValue) @params.Add($"maxWidth={maxWidth.Value}");
         if (maxHeight.HasValue) @params.Add($"maxHeight={maxHeight.Value}");
         if (@params.Count > 0) url += "?" + string.Join("&", @params);
