@@ -28,7 +28,7 @@ public class JellyfinApiClient
     // X-Emby-Authorization header values
     private const string ClientName = "BoxJellyfin";
     private const string DeviceName = "Xbox";
-    private const string AppVersion = "1.0.1.0";
+    private const string AppVersion = "1.0.2.0";
     private static readonly string DeviceId = Guid.NewGuid().ToString("N");
 
     public JellyfinApiClient(HttpClient http)
@@ -283,16 +283,17 @@ public class JellyfinApiClient
     public async Task<ItemsResult> GetItemsAsync(string parentId, string? sortBy = null, string? sortOrder = null,
         int startIndex = 0, int limit = 40, string? filters = null, string? includeItemTypes = null)
     {
-        var url = $"/Users/{CurrentUser!.Id}/Items?ParentId={parentId}&StartIndex={startIndex}&Limit={limit}&Fields=PrimaryImageAspectRatio,BasicSyncInfo,MediaStreams,MediaSources,Blurhashes,ImageBlurHashes";
+        // ItemsController.cs: [Route("")] + [HttpGet("Items")] → GET /Items?userId=&parentId=…
+        var url = $"/Items?userId={CurrentUser!.Id}&parentId={parentId}&startIndex={startIndex}&limit={limit}&Fields=PrimaryImageAspectRatio,BasicSyncInfo,MediaStreams,MediaSources,Blurhashes,ImageBlurHashes";
 
         if (!string.IsNullOrEmpty(sortBy))
-            url += $"&SortBy={sortBy}";
+            url += $"&sortBy={sortBy}";
         if (!string.IsNullOrEmpty(sortOrder))
-            url += $"&SortOrder={sortOrder}";
+            url += $"&sortOrder={sortOrder}";
         if (!string.IsNullOrEmpty(filters))
-            url += $"&Filters={filters}";
+            url += $"&filters={filters}";
         if (!string.IsNullOrEmpty(includeItemTypes))
-            url += $"&IncludeItemTypes={includeItemTypes}";
+            url += $"&includeItemTypes={includeItemTypes}";
 
         try
         {
@@ -304,7 +305,8 @@ public class JellyfinApiClient
 
     public async Task<ItemsResult> GetResumeItemsAsync(int limit = 12)
     {
-        var url = $"/Users/{CurrentUser!.Id}/Items/Resume?Limit={limit}&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes&MediaTypes=Video";
+        // ItemsController.cs: [HttpGet("Items")] — resume uses Filters=IsResumable + SortBy=DatePlayed
+        var url = $"/Items?userId={CurrentUser!.Id}&Filters=IsResumable&SortBy=DatePlayed&SortOrder=Descending&Recursive=true&IncludeItemTypes=Movie,Episode&Limit={limit}&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes";
         try
         {
             var result = await _http.GetFromJsonAsync<ItemsResult>(url, _jsonOpts);
@@ -315,9 +317,10 @@ public class JellyfinApiClient
 
     public async Task<ItemsResult> GetNextUpAsync(string? seriesId = null, int limit = 12)
     {
-        var url = $"/Shows/NextUp?UserId={CurrentUser!.Id}&Limit={limit}&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes";
+        // TvShowsController.cs: [Route("Shows")] + [HttpGet("NextUp")] → GET /Shows/NextUp?userId=…
+        var url = $"/Shows/NextUp?userId={CurrentUser!.Id}&limit={limit}&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes";
         if (!string.IsNullOrEmpty(seriesId))
-            url += $"&SeriesId={seriesId}";
+            url += $"&seriesId={seriesId}";
         try
         {
             var result = await _http.GetFromJsonAsync<ItemsResult>(url, _jsonOpts);
@@ -328,7 +331,7 @@ public class JellyfinApiClient
 
     public async Task<BaseItemDto?> GetItemAsync(string itemId)
     {
-        // UserLibraryController.cs: [HttpGet("Items/{itemId}")] with [FromQuery] Guid? userId
+        // UserLibraryController.cs: [Route("")] + [HttpGet("Items/{itemId}")] → GET /Items/{itemId}?userId=…
         var url = $"/Items/{itemId}?userId={CurrentUser!.Id}&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes,People,Studios,Genres,Overview";
         try
         {
@@ -339,7 +342,8 @@ public class JellyfinApiClient
 
     public async Task<ItemsResult> GetSeasonsAsync(string seriesId)
     {
-        var url = $"/Shows/{seriesId}/Seasons?UserId={CurrentUser!.Id}&Fields=PrimaryImageAspectRatio,ItemCounts";
+        // TvShowsController.cs: [Route("Shows")] + [HttpGet("{seriesId}/Seasons")] → GET /Shows/{id}/Seasons?userId=…
+        var url = $"/Shows/{seriesId}/Seasons?userId={CurrentUser!.Id}&Fields=PrimaryImageAspectRatio,ItemCounts";
         try
         {
             return await _http.GetFromJsonAsync<ItemsResult>(url, _jsonOpts) ?? new();
@@ -349,7 +353,8 @@ public class JellyfinApiClient
 
     public async Task<ItemsResult> GetEpisodesAsync(string seriesId, string seasonId)
     {
-        var url = $"/Shows/{seriesId}/Episodes?SeasonId={seasonId}&UserId={CurrentUser!.Id}&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes";
+        // TvShowsController.cs: [Route("Shows")] + [HttpGet("{seriesId}/Episodes")] → GET /Shows/{id}/Episodes?seasonId=…&userId=…
+        var url = $"/Shows/{seriesId}/Episodes?seasonId={seasonId}&userId={CurrentUser!.Id}&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes";
         try
         {
             return await _http.GetFromJsonAsync<ItemsResult>(url, _jsonOpts) ?? new();
@@ -363,7 +368,8 @@ public class JellyfinApiClient
 
     public async Task<ItemsResult> SearchAsync(string query, int limit = 20)
     {
-        var url = $"/Users/{CurrentUser!.Id}/Items?SearchTerm={Uri.EscapeDataString(query)}&Limit={limit}&IncludeItemTypes=Movie,Series,Episode&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes";
+        // ItemsController.cs: [HttpGet("Items")] with searchTerm parameter → GET /Items?searchTerm=…&userId=…
+        var url = $"/Items?searchTerm={Uri.EscapeDataString(query)}&userId={CurrentUser!.Id}&limit={limit}&IncludeItemTypes=Movie,Series,Episode&Fields=PrimaryImageAspectRatio,MediaSources,MediaStreams,Blurhashes,ImageBlurHashes&Recursive=true";
         try
         {
             return await _http.GetFromJsonAsync<ItemsResult>(url, _jsonOpts) ?? new();
