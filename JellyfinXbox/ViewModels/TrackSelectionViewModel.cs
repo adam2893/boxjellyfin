@@ -69,10 +69,10 @@ public class TrackSelectionViewModel : ObservableObject
         AudioTracks.Clear();
         SubtitleTracks.Clear();
 
-        var audioStreams = JellyfinApiClient.GetAudioStreams(source);
+        var audioStreams = _api.GetAudioStreams(source);
         foreach (var a in audioStreams) AudioTracks.Add(a);
 
-        var subStreams = JellyfinApiClient.GetSubtitleStreams(source);
+        var subStreams = _api.GetSubtitleStreams(source);
         SubtitleTracks.Add(new MediaStream
         {
             Index = -1,
