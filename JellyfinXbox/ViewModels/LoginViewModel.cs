@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -5,33 +6,37 @@ using JellyfinClient.Models;
 using JellyfinClient.Services;
 using JellyfinXbox.Services;
 using JellyfinXbox.Views;
+using DispatcherQueue = Windows.System.DispatcherQueue;
+using User = JellyfinClient.Models.User;
 
 namespace JellyfinXbox.ViewModels;
 
+/// <summary>
+/// Step 2: User authentication. Shows public users, username/password, Quick Connect option.
+/// Assumes server is already connected (ConnectViewModel handles that).
+/// </summary>
 public class LoginViewModel : ObservableObject
 {
     private readonly JellyfinApiClient _api;
     private readonly NavigationService _nav;
+    private readonly DispatcherQueue _dispatcher;
 
-    private string _serverUrl = "";
     private string _username = "";
     private string _password = "";
     private bool _isLoading;
     private string? _errorMessage;
-    private bool _showPasswordField;
-    private string _serverName = "";
+    private string? _serverName;
+    private bool _isQuickConnectEnabled;
 
-    public string ServerUrl { get => _serverUrl; set => SetProperty(ref _serverUrl, value); }
     public string Username { get => _username; set => SetProperty(ref _username, value); }
     public string Password { get => _password; set => SetProperty(ref _password, value); }
     public bool IsLoading { get => _isLoading; set => SetProperty(ref _isLoading, value); }
     public string? ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value); }
-    public bool ShowPasswordField { get => _showPasswordField; set => SetProperty(ref _showPasswordField, value); }
-    public string ServerName { get => _serverName; set => SetProperty(ref _serverName, value); }
+    public string? ServerName { get => _serverName; set => SetProperty(ref _serverName, value); }
+    public bool IsQuickConnectEnabled { get => _isQuickConnectEnabled; set => SetProperty(ref _isQuickConnectEnabled, value); }
 
     public ObservableCollection<User> PublicUsers { get; } = new();
 
-    public ICommand ConnectCommand { get; }
     public ICommand LoginCommand { get; }
     public ICommand SelectUserCommand { get; }
     public ICommand QuickConnectCommand { get; }
@@ -40,79 +45,93 @@ public class LoginViewModel : ObservableObject
     {
         _api = api;
         _nav = nav;
-        ConnectCommand = new AsyncRelayCommand(ConnectAsync);
+        _dispatcher = Windows.System.DispatcherQueue.GetForCurrentThread();
         LoginCommand = new AsyncRelayCommand(LoginAsync);
         SelectUserCommand = new RelayCommand<User>(SelectUser);
         QuickConnectCommand = new RelayCommand(OpenQuickConnect);
     }
 
-    private async Task ConnectAsync()
+    /// <summary>
+    /// Called when the page loads. Fetches public users and Quick Connect status.
+    /// </summary>
+    public async Task InitializeAsync()
     {
-        ErrorMessage = null;
-
-        if (string.IsNullOrWhiteSpace(ServerUrl))
+        _dispatcher.TryEnqueue(() =>
         {
-            ErrorMessage = "Enter a server URL.";
-            return;
-        }
+            IsLoading = true;
+            ErrorMessage = null;
+            ServerName = _api.ServerInfo?.ServerName ?? _api.ServerUrl;
+        });
 
-        if (!ServerUrl.StartsWith("http"))
-            ServerUrl = "https://" + ServerUrl;
-
-        IsLoading = true;
-        _api.SetServerUrl(ServerUrl);
-
-        var info = await _api.GetServerInfoAsync();
-        if (info == null)
+        try
         {
-            ErrorMessage = "Cannot connect to server. Check the URL and try again.";
-            IsLoading = false;
-            return;
+            var users = await _api.GetPublicUsersAsync();
+            _dispatcher.TryEnqueue(() =>
+            {
+                PublicUsers.Clear();
+                foreach (var u in users) PublicUsers.Add(u);
+                if (PublicUsers.Count == 1)
+                    Username = PublicUsers[0].Name;
+            });
         }
+        catch { }
 
-        ServerName = info.ServerName;
+        _dispatcher.TryEnqueue(() => IsLoading = false);
 
-        // Always show login fields after connecting — even if no public users
-        ShowPasswordField = true;
+        // Check Quick Connect availability in background
+        _ = CheckQuickConnectEnabledAsync();
+    }
 
-        var users = await _api.GetPublicUsersAsync();
-        PublicUsers.Clear();
-        foreach (var u in users) PublicUsers.Add(u);
-
-        if (PublicUsers.Count == 1)
-            Username = PublicUsers[0].Name;
-
-        IsLoading = false;
+    private async Task CheckQuickConnectEnabledAsync()
+    {
+        try
+        {
+            // Quick check: call QuickConnect init and see if it returns a secret
+            var (result, _) = await _api.QuickConnectInitAsync();
+            _dispatcher.TryEnqueue(() => IsQuickConnectEnabled = result != null);
+        }
+        catch
+        {
+            _dispatcher.TryEnqueue(() => IsQuickConnectEnabled = false);
+        }
     }
 
     private async Task LoginAsync()
     {
-        if (string.IsNullOrWhiteSpace(Username))
+        if (string.IsNullOrWhiteSpace(_username))
         {
-            ErrorMessage = "Enter a username.";
+            _dispatcher.TryEnqueue(() => ErrorMessage = "Enter a username.");
             return;
         }
 
-        ErrorMessage = null;
-        IsLoading = true;
-
-        var result = await _api.AuthenticateAsync(Username, Password);
-        if (result == null)
+        _dispatcher.TryEnqueue(() =>
         {
-            ErrorMessage = "Login failed. Check your credentials.";
+            ErrorMessage = null;
+            IsLoading = true;
+        });
+
+        var (result, error) = await _api.AuthenticateAsync(_username, _password);
+
+        _dispatcher.TryEnqueue(() =>
+        {
             IsLoading = false;
-            return;
-        }
 
-        IsLoading = false;
-        Password = string.Empty;
-        _nav.NavigateTo(typeof(Views.HomePage));
+            if (result == null)
+            {
+                ErrorMessage = error ?? "Login failed. Check your credentials.";
+                return;
+            }
+
+            _password = string.Empty;
+            OnPropertyChanged(nameof(Password));
+            _nav.NavigateTo(typeof(HomePage));
+        });
     }
 
     private void SelectUser(User? user)
     {
         if (user == null) return;
-        Username = user.Name;
+        _dispatcher.TryEnqueue(() => Username = user.Name);
     }
 
     private void OpenQuickConnect()

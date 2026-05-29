@@ -46,6 +46,7 @@ public partial class App : Application
         _services[typeof(NavigationService)] = nav;
 
         // Register factory delegates for transient services (created on demand)
+        _factories[typeof(ConnectViewModel)] = () => new ConnectViewModel(api, nav);
         _factories[typeof(LoginViewModel)] = () => new LoginViewModel(api, nav);
         _factories[typeof(HomeViewModel)] = () => new HomeViewModel(api, nav);
         _factories[typeof(MediaDetailViewModel)] = () => new MediaDetailViewModel(api, nav);
@@ -58,7 +59,8 @@ public partial class App : Application
 
         // Register pages (created on demand, same as transient)
         _factories[typeof(ShellPage)] = () => new ShellPage(nav);
-        _factories[typeof(LoginPage)] = () => new LoginPage(nav, GetViewModel<LoginViewModel>());
+        _factories[typeof(ConnectPage)] = () => new ConnectPage(GetViewModel<ConnectViewModel>());
+        _factories[typeof(LoginPage)] = () => new LoginPage(GetViewModel<LoginViewModel>());
         _factories[typeof(HomePage)] = () => new HomePage(GetViewModel<HomeViewModel>());
         _factories[typeof(MediaDetailPage)] = () => new MediaDetailPage(GetViewModel<MediaDetailViewModel>());
         _factories[typeof(PlayerPage)] = () => new PlayerPage(GetViewModel<PlayerViewModel>());

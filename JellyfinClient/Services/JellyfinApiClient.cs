@@ -1,3 +1,5 @@
+using System;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -11,8 +13,8 @@ public class JellyfinApiClient
     private readonly JsonSerializerOptions _jsonOpts;
 
     public string? ServerUrl { get; private set; }
-    public string? AccessToken { get; private set; }
-    public User? CurrentUser { get; private set; }
+    public string? AccessToken { get; set; }
+    public User? CurrentUser { get; set; }
     public ServerInfo? ServerInfo { get; private set; }
     public UserSettings Settings { get; private set; } = UserSettings.Default;
 
@@ -20,6 +22,14 @@ public class JellyfinApiClient
 
     public event Action? OnAuthenticationChanged;
     public event Action? OnSettingsChanged;
+
+    public void RaiseAuthChanged() => OnAuthenticationChanged?.Invoke();
+
+    // X-Emby-Authorization header values
+    private const string ClientName = "BoxJellyfin";
+    private const string DeviceName = "Xbox";
+    private const string AppVersion = "1.0.1.0";
+    private static readonly string DeviceId = Guid.NewGuid().ToString("N");
 
     public JellyfinApiClient(HttpClient http)
     {
@@ -29,26 +39,39 @@ public class JellyfinApiClient
             PropertyNameCaseInsensitive = true,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
+        SetEmbyAuthHeader();
+    }
+
+    private void SetEmbyAuthHeader()
+    {
+        // Jellyfin requires X-Emby-Authorization header for client identification.
+        // Format: MediaBrowser Client="App", Device="Device", DeviceId="id", Version="ver"
+        // This is read by the server's AuthorizationContext.GetAuthorizationInfo() for
+        // Quick Connect, session tracking, and device management.
+        var header = $"MediaBrowser Client=\"{ClientName}\", Device=\"{DeviceName}\", DeviceId=\"{DeviceId}\", Version=\"{AppVersion}\"";
+
+        // Remove old value if exists, then set new
+        _http.DefaultRequestHeaders.Remove("X-Emby-Authorization");
+        _http.DefaultRequestHeaders.Add("X-Emby-Authorization", header);
     }
 
     public void SetServerUrl(string url)
     {
         ServerUrl = url.TrimEnd('/');
         _http.BaseAddress = new Uri(ServerUrl);
+        SetEmbyAuthHeader(); // Re-add after BaseAddress change
     }
 
-    private void ApplyAuth()
+    public void ApplyAuth()
     {
+        _http.DefaultRequestHeaders.Remove("Authorization");
+        _http.DefaultRequestHeaders.Remove("X-Emby-Token");
+
         if (!string.IsNullOrEmpty(AccessToken))
         {
             _http.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AccessToken);
             _http.DefaultRequestHeaders.Add("X-Emby-Token", AccessToken);
-        }
-        else
-        {
-            _http.DefaultRequestHeaders.Authorization = null;
-            _http.DefaultRequestHeaders.Remove("X-Emby-Token");
         }
     }
 
@@ -64,15 +87,22 @@ public class JellyfinApiClient
 
     #region Discovery
 
-    public async Task<ServerInfo?> GetServerInfoAsync()
+    public async Task<(ServerInfo? info, string? error)> GetServerInfoAsync()
     {
         try
         {
             var result = await _http.GetFromJsonAsync<ServerInfo>("/System/Info/Public", _jsonOpts);
             ServerInfo = result;
-            return result;
+            return (result, null);
         }
-        catch { return null; }
+        catch (HttpRequestException ex)
+        {
+            return (null, $"Cannot reach server: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return (null, $"Error: {ex.Message}");
+        }
     }
 
     #endregion
@@ -89,25 +119,37 @@ public class JellyfinApiClient
         catch { return new(); }
     }
 
-    public async Task<AuthenticationResult?> AuthenticateAsync(string username, string password)
+    public async Task<(AuthenticationResult? result, string? error)> AuthenticateAsync(string username, string password)
     {
         var body = new { Username = username, Pw = password };
         try
         {
-            var response = await _http.PostAsJsonAsync("/Users/AuthenticateByName", body);
-            response.EnsureSuccessStatusCode();
+            var response = await _http.PostAsJsonAsync("/Users/AuthenticateByName", body, _jsonOpts);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var bodyText = await response.Content.ReadAsStringAsync();
+                return (null, $"Server returned {(int)response.StatusCode}: {bodyText}");
+            }
 
             var result = await response.Content.ReadFromJsonAsync<AuthenticationResult>(_jsonOpts);
-            if (result != null)
-            {
-                AccessToken = result.AccessToken;
-                CurrentUser = result.User;
-                ApplyAuth();
-                OnAuthenticationChanged?.Invoke();
-            }
-            return result;
+            if (result == null)
+                return (null, "Server returned empty response");
+
+            AccessToken = result.AccessToken;
+            CurrentUser = result.User;
+            ApplyAuth();
+            OnAuthenticationChanged?.Invoke();
+            return (result, null);
         }
-        catch (HttpRequestException) { return null; }
+        catch (HttpRequestException ex)
+        {
+            return (null, $"Cannot reach server: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return (null, $"Error: {ex.Message}");
+        }
     }
 
     public void Logout()
@@ -122,45 +164,92 @@ public class JellyfinApiClient
 
     #region Quick Connect
 
-    public async Task<QuickConnectInitResponse?> QuickConnectInitAsync()
+    /// <summary>
+    /// Initiates Quick Connect. Endpoint: POST /QuickConnect/Initiate
+    /// (NOT /QuickConnect/Init — that endpoint does not exist in Jellyfin)
+    /// </summary>
+    public async Task<(QuickConnectInitResponse? result, string? error)> QuickConnectInitAsync()
     {
         try
         {
-            var response = await _http.PostAsync("/QuickConnect/Init", null);
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<QuickConnectInitResponse>(_jsonOpts);
-        }
-        catch { return null; }
-    }
+            if (string.IsNullOrEmpty(ServerUrl))
+                return (null, "No server connected. Enter server URL first.");
 
-    public async Task<QuickConnectAuthorizeResponse?> QuickConnectCheckAuthAsync(string secret)
-    {
-        try
-        {
-            var result = await _http.GetFromJsonAsync<QuickConnectAuthorizeResponse>(
-                $"/QuickConnect/Authorize?secret={secret}", _jsonOpts);
-            return result;
-        }
-        catch { return null; }
-    }
+            var fullUrl = $"{ServerUrl}/QuickConnect/Initiate";
+            var response = await _http.PostAsync(fullUrl, null);
 
-    public async Task<AuthenticationResult?> QuickConnectConnectAsync(string secret)
-    {
-        try
-        {
-            var response = await _http.PostAsync($"/QuickConnect/Connect?secret={secret}", null);
-            response.EnsureSuccessStatusCode();
-            var result = await response.Content.ReadFromJsonAsync<AuthenticationResult>(_jsonOpts);
-            if (result != null)
+            if (!response.IsSuccessStatusCode)
             {
-                AccessToken = result.AccessToken;
-                CurrentUser = result.User;
-                ApplyAuth();
-                OnAuthenticationChanged?.Invoke();
+                var body = await response.Content.ReadAsStringAsync();
+                return (null, $"Server returned {(int)response.StatusCode}: {body}");
             }
-            return result;
+
+            var result = await response.Content.ReadFromJsonAsync<QuickConnectInitResponse>(_jsonOpts);
+            if (result == null)
+                return (null, "Server returned unexpected response");
+
+            if (string.IsNullOrEmpty(result.Secret))
+                return (null, "Server returned empty secret — Quick Connect may be disabled");
+
+            return (result, null);
+        }
+        catch (HttpRequestException ex)
+        {
+            return (null, $"Cannot reach server: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return (null, $"Error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Polls Quick Connect status. Endpoint: GET /QuickConnect/Connect?secret=
+    /// Returns the QuickConnectResult which includes Authenticated flag and
+    /// authentication tokens when authorized.
+    /// </summary>
+    public async Task<QuickConnectStatusResponse?> QuickConnectCheckAsync(string secret)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<QuickConnectStatusResponse>(
+                $"/QuickConnect/Connect?secret={Uri.EscapeDataString(secret)}", _jsonOpts);
         }
         catch { return null; }
+    }
+
+    /// <summary>
+    /// Exchanges Quick Connect secret for auth tokens.
+    /// Endpoint: POST /Users/AuthenticateWithQuickConnect
+    /// Body: { Secret: "..." }
+    /// </summary>
+    public async Task<(AuthenticationResult? result, string? error)> QuickConnectAuthenticateAsync(string secret)
+    {
+        try
+        {
+            var body = new { Secret = secret };
+            var response = await _http.PostAsJsonAsync("/Users/AuthenticateWithQuickConnect", body, _jsonOpts);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var bodyText = await response.Content.ReadAsStringAsync();
+                return (null, $"Auth failed: {(int)response.StatusCode}: {bodyText}");
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<AuthenticationResult>(_jsonOpts);
+            if (result == null)
+                return (null, "Server returned empty response");
+
+            AccessToken = result.AccessToken;
+            CurrentUser = result.User;
+            ApplyAuth();
+            OnAuthenticationChanged?.Invoke();
+            return (result, null);
+        }
+        catch (Exception ex)
+        {
+            return (null, $"Error: {ex.Message}");
+        }
     }
 
     #endregion
@@ -283,13 +372,12 @@ public class JellyfinApiClient
     {
         var url = $"/Items/{itemId}/PlaybackInfo?UserId={CurrentUser!.Id}&MaxStreamingBitrate={maxBitrate}&AutoOpenLiveStreams=true";
 
-        // Include audio/subtitle preferences from settings
         if (!string.IsNullOrEmpty(Settings.PreferredAudioLanguage))
-            url += $"&AudioStreamIndex=-1"; // Let server pick by language preference
+            url += $"&AudioStreamIndex=-1";
         if (Settings.SubtitleMode == "On")
-            url += $"&SubtitleStreamIndex=-1"; // Enable default subtitle
+            url += $"&SubtitleStreamIndex=-1";
         else if (Settings.SubtitleMode == "Off")
-            url += $"&SubtitleStreamIndex=-2"; // Disable subtitles
+            url += $"&SubtitleStreamIndex=-2";
 
         var body = new { DeviceProfileJson = DeviceProfileBuilder.GetXboxProfileJson() };
 
@@ -365,16 +453,12 @@ public class JellyfinApiClient
         catch { }
     }
 
-    /// <summary>
-    /// Build a transcoding URL with specific audio/subtitle track selection.
-    /// </summary>
     public string BuildTranscodeUrlWithTracks(string itemId, MediaSourceInfo source,
         int? audioIndex = null, int? subtitleIndex = null)
     {
         var baseUrl = ServerUrl;
         var url = $"/Videos/{itemId}/stream?static=true&MediaSourceId={source.Id}&ApiKey={AccessToken}";
 
-        // If we need to switch tracks on a transcode, we need a full transcode URL
         if (!source.SupportsDirectPlay && !string.IsNullOrEmpty(source.TranscodingUrl))
         {
             url = source.TranscodingUrl;
@@ -385,7 +469,6 @@ public class JellyfinApiClient
             return $"{baseUrl}{url}&ApiKey={AccessToken}";
         }
 
-        // For direct play / direct stream, track changes may need transcoding
         if (audioIndex.HasValue)
             url += $"&AudioStreamIndex={audioIndex.Value}";
         if (subtitleIndex.HasValue)

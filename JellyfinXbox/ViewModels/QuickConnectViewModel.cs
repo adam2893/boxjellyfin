@@ -6,6 +6,7 @@ using System.Windows.Input;
 using JellyfinClient.Services;
 using JellyfinXbox.Services;
 using JellyfinXbox.Views;
+using DispatcherQueue = Windows.System.DispatcherQueue;
 
 namespace JellyfinXbox.ViewModels;
 
@@ -13,15 +14,15 @@ public class QuickConnectViewModel : ObservableObject, IDisposable
 {
     private readonly JellyfinApiClient _api;
     private readonly NavigationService _nav;
+    private readonly DispatcherQueue _dispatcher;
     private CancellationTokenSource? _pollCts;
 
     private bool _isActive;
     private string _code = "";
-    private string _statusMessage = "Waiting for connection...";
+    private string _statusMessage = "Press Start to begin Quick Connect";
     private bool _isSuccess;
     private bool _isError;
     private string _errorMessage = "";
-    private string _connectedUserName = "";
 
     public bool IsActive { get => _isActive; set => SetProperty(ref _isActive, value); }
     public string Code { get => _code; set => SetProperty(ref _code, value); }
@@ -29,9 +30,8 @@ public class QuickConnectViewModel : ObservableObject, IDisposable
     public bool IsSuccess { get => _isSuccess; set => SetProperty(ref _isSuccess, value); }
     public bool IsError { get => _isError; set => SetProperty(ref _isError, value); }
     public string ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value); }
-    public string ConnectedUserName { get => _connectedUserName; set => SetProperty(ref _connectedUserName, value); }
 
-    public ICommand StartQuickConnectCommand { get; }
+    public ICommand StartCommand { get; }
     public ICommand CancelCommand { get; }
     public ICommand GoBackCommand { get; }
 
@@ -39,95 +39,133 @@ public class QuickConnectViewModel : ObservableObject, IDisposable
     {
         _api = api;
         _nav = nav;
-        StartQuickConnectCommand = new AsyncRelayCommand(StartQuickConnectAsync);
+        _dispatcher = DispatcherQueue.GetForCurrentThread();
+        StartCommand = new AsyncRelayCommand(StartQuickConnectAsync);
         CancelCommand = new RelayCommand(Cancel);
         GoBackCommand = new RelayCommand(GoBack);
     }
 
     private async Task StartQuickConnectAsync()
     {
-        IsActive = true;
-        IsSuccess = false;
-        IsError = false;
-        ErrorMessage = "";
-        ConnectedUserName = "";
+        _dispatcher.TryEnqueue(() =>
+        {
+            IsActive = true;
+            IsSuccess = false;
+            IsError = false;
+            ErrorMessage = "";
+        });
 
-        var initResult = await _api.QuickConnectInitAsync();
+        // 1. Initiate Quick Connect — POST /QuickConnect/Initiate
+        var (initResult, error) = await _api.QuickConnectInitAsync();
+
         if (initResult == null)
         {
-            IsError = true;
-            ErrorMessage = "Quick Connect is not available on this server. Enable it in Jellyfin server settings.";
-            IsActive = false;
+            _dispatcher.TryEnqueue(() =>
+            {
+                IsError = true;
+                ErrorMessage = error ?? "Quick Connect unavailable. Check server settings.";
+                IsActive = false;
+            });
             return;
         }
 
-        Code = initResult.Code;
-        StatusMessage = $"Enter code {Code} on another device";
-        Debug.WriteLine($"[QuickConnect] Initiated with code: {Code}");
-
+        // Start polling on a background task
         _pollCts = new CancellationTokenSource();
-        try
+        var secret = initResult.Secret;
+        var code = initResult.Code;
+        var ct = _pollCts.Token;
+
+        _dispatcher.TryEnqueue(() =>
         {
-            await PollForAuthorization(initResult.Secret, _pollCts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            if (IsActive)
-                StatusMessage = "Connection timed out. Try again.";
-        }
+            Code = code;
+            StatusMessage = $"Enter this code on another device: {code}";
+            Debug.WriteLine($"[QuickConnect] Init OK — Code: {code}");
+        });
+
+        // Run polling on thread pool
+        _ = Task.Run(() => PollForAuthorization(secret, ct));
     }
 
     private async Task PollForAuthorization(string secret, CancellationToken ct)
     {
-        int attempts = 0;
-        const int maxAttempts = 120;
-
-        while (!ct.IsCancellationRequested && attempts < maxAttempts)
+        const int maxAttempts = 120; // 2 minutes
+        for (int i = 0; i < maxAttempts && !ct.IsCancellationRequested; i++)
         {
-            await Task.Delay(1000, ct);
-            attempts++;
+            try { await Task.Delay(1000, ct); }
+            catch (OperationCanceledException) { return; }
 
-            var authResult = await _api.QuickConnectCheckAuthAsync(secret);
-            if (authResult == null) continue;
+            var status = await _api.QuickConnectCheckAsync(secret);
+            if (status == null) continue;
 
-            if (authResult.Authorized)
+            Debug.WriteLine($"[QuickConnect] Poll {i + 1}: Authenticated={status.Authenticated}");
+
+            if (status.Authenticated)
             {
-                StatusMessage = $"Authorized! Connecting as {authResult.UserName}...";
-
-                var connectResult = await _api.QuickConnectConnectAsync(secret);
-                if (connectResult != null)
+                // If the Connect response already contains tokens, use them directly
+                if (status.Authentication?.AccessToken != null)
                 {
-                    IsSuccess = true;
-                    ConnectedUserName = connectResult.User.Name;
-                    StatusMessage = $"Connected as {ConnectedUserName}!";
-                    Debug.WriteLine($"[QuickConnect] Connected as {ConnectedUserName}");
-
+                    _dispatcher.TryEnqueue(() =>
+                    {
+                        _api.AccessToken = status.Authentication.AccessToken;
+                        _api.CurrentUser = status.Authentication.User;
+                        _api.ApplyAuth();
+                        _api.RaiseAuthChanged();
+                        IsSuccess = true;
+                        StatusMessage = $"Connected as {status.Authentication.User.Name}!";
+                    });
                     await Task.Delay(1500, CancellationToken.None);
-                    _nav.NavigateTo(typeof(HomePage));
+                    _dispatcher.TryEnqueue(() => _nav.NavigateTo(typeof(HomePage)));
+                    return;
+                }
+
+                // Otherwise exchange secret for auth tokens — POST /Users/AuthenticateWithQuickConnect
+                _dispatcher.TryEnqueue(() => StatusMessage = "Authorized! Signing in...");
+
+                var (authResult, authError) = await _api.QuickConnectAuthenticateAsync(secret);
+
+                if (authResult != null)
+                {
+                    _dispatcher.TryEnqueue(() =>
+                    {
+                        IsSuccess = true;
+                        StatusMessage = $"Connected as {authResult.User.Name}!";
+                    });
+                    await Task.Delay(1500, CancellationToken.None);
+                    _dispatcher.TryEnqueue(() => _nav.NavigateTo(typeof(HomePage)));
                 }
                 else
                 {
-                    IsError = true;
-                    ErrorMessage = "Authorization succeeded but connection failed. Try again.";
+                    _dispatcher.TryEnqueue(() =>
+                    {
+                        IsError = true;
+                        ErrorMessage = authError ?? "Token exchange failed.";
+                        StatusMessage = "Login failed.";
+                    });
                 }
                 return;
             }
         }
 
-        if (IsActive)
+        if (!ct.IsCancellationRequested)
         {
-            IsError = true;
-            StatusMessage = "Connection timed out.";
-            ErrorMessage = "No device responded within 2 minutes. Try again.";
+            _dispatcher.TryEnqueue(() =>
+            {
+                IsError = true;
+                ErrorMessage = "No device responded within 2 minutes.";
+                StatusMessage = "Timed out.";
+            });
         }
     }
 
     private void Cancel()
     {
         _pollCts?.Cancel();
-        IsActive = false;
-        Code = "";
-        StatusMessage = "Waiting for connection...";
+        _dispatcher.TryEnqueue(() =>
+        {
+            IsActive = false;
+            Code = "";
+            StatusMessage = "Press Start to begin Quick Connect";
+        });
     }
 
     private void GoBack()

@@ -16,7 +16,6 @@ public sealed partial class ShellPage : Page
         InitializeComponent();
         _nav = nav;
         _nav.Initialize(ContentFrame);
-
         Loaded += OnLoaded;
     }
 
@@ -24,13 +23,8 @@ public sealed partial class ShellPage : Page
     {
         var api = App.GetService<JellyfinApiClient>();
 
-        // Set initial focus for gamepad
-        NavHome.Focus(FocusState.Programmatic);
-
         if (!api.IsAuthenticated)
-        {
-            _nav.NavigateTo(typeof(LoginPage));
-        }
+            _nav.NavigateTo(typeof(ConnectPage));
         else
         {
             HighlightNav("home");
@@ -40,44 +34,44 @@ public sealed partial class ShellPage : Page
 
     private void NavButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button btn)
+        if (sender is not Button btn) return;
+
+        var api = App.GetService<JellyfinApiClient>();
+        var tag = btn.Tag?.ToString();
+
+        // Require auth for Home and Search
+        if (!api.IsAuthenticated && (tag == "home" || tag == "search"))
         {
-            var tag = btn.Tag?.ToString();
-            HighlightNav(tag);
-            switch (tag)
-            {
-                case "home":
-                    _nav.NavigateTo(typeof(HomePage));
-                    break;
-                case "search":
-                    _nav.NavigateTo(typeof(SearchPage));
-                    break;
-                case "quickconnect":
-                    _nav.NavigateTo(typeof(QuickConnectPage));
-                    break;
-                case "settings":
-                    _nav.NavigateTo(typeof(SettingsPage));
-                    break;
-            }
+            _nav.NavigateTo(typeof(ConnectPage));
+            return;
+        }
+
+        HighlightNav(tag);
+        switch (tag)
+        {
+            case "home": _nav.NavigateTo(typeof(HomePage)); break;
+            case "search": _nav.NavigateTo(typeof(SearchPage)); break;
+            case "quickconnect": _nav.NavigateTo(typeof(QuickConnectPage)); break;
+            case "settings": _nav.NavigateTo(typeof(SettingsPage)); break;
         }
     }
 
     private void HighlightNav(string? tag)
     {
-        // Reset all
-        NavHome.Foreground = Application.Current.Resources["TextSecondaryBrush"] as Windows.UI.Xaml.Media.SolidColorBrush;
-        NavSearch.Foreground = Application.Current.Resources["TextSecondaryBrush"] as Windows.UI.Xaml.Media.SolidColorBrush;
-        NavQuickConnect.Foreground = Application.Current.Resources["TextSecondaryBrush"] as Windows.UI.Xaml.Media.SolidColorBrush;
-        NavSettings.Foreground = Application.Current.Resources["TextSecondaryBrush"] as Windows.UI.Xaml.Media.SolidColorBrush;
+        var secondary = Application.Current.Resources["TextSecondaryBrush"] as Windows.UI.Xaml.Media.SolidColorBrush;
+        var accent = Application.Current.Resources["AccentBrush"] as Windows.UI.Xaml.Media.SolidColorBrush;
 
-        // Highlight active
-        var accentBrush = Application.Current.Resources["AccentBrush"] as Windows.UI.Xaml.Media.SolidColorBrush;
+        NavHome.Foreground = secondary;
+        NavSearch.Foreground = secondary;
+        NavQuickConnect.Foreground = secondary;
+        NavSettings.Foreground = secondary;
+
         switch (tag)
         {
-            case "home": NavHome.Foreground = accentBrush; break;
-            case "search": NavSearch.Foreground = accentBrush; break;
-            case "quickconnect": NavQuickConnect.Foreground = accentBrush; break;
-            case "settings": NavSettings.Foreground = accentBrush; break;
+            case "home": NavHome.Foreground = accent; break;
+            case "search": NavSearch.Foreground = accent; break;
+            case "quickconnect": NavQuickConnect.Foreground = accent; break;
+            case "settings": NavSettings.Foreground = accent; break;
         }
     }
 
@@ -87,8 +81,6 @@ public sealed partial class ShellPage : Page
             e.SourcePageType != typeof(SearchPage) &&
             e.SourcePageType != typeof(QuickConnectPage) &&
             e.SourcePageType != typeof(SettingsPage))
-        {
             HighlightNav(null);
-        }
     }
 }

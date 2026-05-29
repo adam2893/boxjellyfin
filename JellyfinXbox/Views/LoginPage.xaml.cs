@@ -1,38 +1,52 @@
+using System.Linq;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
-using Windows.UI.Xaml.Input;
 using JellyfinClient.Models;
-using System.Linq;
-using JellyfinXbox.Services;
 using JellyfinXbox.ViewModels;
-using JellyfinXbox.Views;
 
 namespace JellyfinXbox.Views;
 
 public sealed partial class LoginPage : Page
 {
     public LoginViewModel ViewModel { get; }
-    private readonly NavigationService _nav;
 
-    public LoginPage(NavigationService nav, LoginViewModel viewModel)
+    public LoginPage(LoginViewModel viewModel)
     {
         ViewModel = viewModel;
-        _nav = nav;
         InitializeComponent();
-        Loaded += (s, e) => ServerUrlBox.Focus(FocusState.Programmatic);
+
+        // PasswordBox.Password is NOT a dependency property — x:Bind TwoWay doesn't work.
+        PasswordBox.PasswordChanged += (s, e) => ViewModel.Password = PasswordBox.Password;
+
+        Loaded += async (s, e) =>
+        {
+            // Show user list if there are public users
+            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+            // Focus first field
+            if (ViewModel.PublicUsers.Count > 0)
+                UserListView.Focus(FocusState.Programmatic);
+            else
+                UsernameBox.Focus(FocusState.Programmatic);
+
+            // Load users
+            await ViewModel.InitializeAsync();
+        };
     }
 
-    private void ServerUrlBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    private void OnViewModelPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.Key == Windows.System.VirtualKey.Enter)
-            ViewModel.ConnectCommand.Execute(null);
-    }
-
-    private void PasswordBox_KeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == Windows.System.VirtualKey.Enter)
-            ViewModel.LoginCommand.Execute(null);
+        if (e.PropertyName == nameof(ViewModel.PublicUsers) ||
+            e.PropertyName == "Item[]")
+        {
+            var dq = Windows.System.DispatcherQueue.GetForCurrentThread();
+            dq.TryEnqueue(() =>
+            {
+                UserListView.Visibility = ViewModel.PublicUsers.Count > 0
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            });
+        }
     }
 
     private void UserListView_ItemClick(object sender, ItemClickEventArgs e)
@@ -41,14 +55,9 @@ public sealed partial class LoginPage : Page
             ViewModel.SelectUserCommand.Execute(user);
     }
 
-    private void QuickConnect_Click(object sender, RoutedEventArgs e)
+    private void UserListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        _nav.NavigateTo(typeof(QuickConnectPage));
-    }
-
-    private void UserListView_SelectionChanged(object sender, Windows.UI.Xaml.Controls.SelectionChangedEventArgs e)
-    {
-        if (e.AddedItems.FirstOrDefault() is JellyfinClient.Models.User user)
+        if (e.AddedItems.FirstOrDefault() is User user)
             ViewModel.SelectUserCommand.Execute(user);
     }
 }
