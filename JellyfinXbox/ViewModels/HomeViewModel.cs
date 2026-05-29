@@ -49,7 +49,7 @@ public class HomeViewModel : ObservableObject
         };
     }
 
-    private async Task LoadDataAsync()
+    public async Task LoadDataAsync()
     {
         if (!_api.IsAuthenticated) return;
         IsLoading = true;

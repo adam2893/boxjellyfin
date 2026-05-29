@@ -1,5 +1,4 @@
 using System;
-using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -8,7 +7,6 @@ using Windows.Media.Playback;
 using System.Linq;
 using JellyfinClient.Models;
 using JellyfinXbox.ViewModels;
-using System.Threading.Tasks;
 
 namespace JellyfinXbox.Views;
 
@@ -16,8 +14,12 @@ public sealed partial class PlayerPage : Page
 {
     public PlayerViewModel ViewModel { get; }
     private DispatcherTimer? _hideTimer;
+    private string? _pendingItemId;
 
-    public PlayerPage(PlayerViewModel viewModel) { ViewModel = viewModel; InitializeComponent();
+    public PlayerPage(PlayerViewModel viewModel)
+    {
+        ViewModel = viewModel;
+        InitializeComponent();
 
         _hideTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
         _hideTimer.Tick += (s, e) =>
@@ -25,32 +27,27 @@ public sealed partial class PlayerPage : Page
             TransportOverlay.Opacity = 0;
             _hideTimer.Stop();
         };
+
+        Loaded += OnLoaded;
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    public void Initialize(string itemId)
     {
-        base.OnNavigatedTo(e);
+        _pendingItemId = itemId;
+    }
 
-        if (e.Parameter is string itemId)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= OnLoaded;
+        if (_pendingItemId != null)
         {
             var player = ViewModel.Player;
             if (player != null)
                 MediaPlayerElement.SetMediaPlayer(player);
 
-            _ = LoadSafeAsync(itemId);
+            try { await ViewModel.LoadAsync(_pendingItemId); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Player load failed: {ex.Message}"); }
         }
-    }
-
-    private async Task LoadSafeAsync(string id)
-    {
-        try { await ViewModel.LoadAsync(id); }
-        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Player load failed: {ex.Message}"); }
-    }
-
-    protected override void OnNavigatedFrom(NavigationEventArgs e)
-    {
-        base.OnNavigatedFrom(e);
-        ViewModel.Dispose();
     }
 
     private void ShowTransport()
@@ -59,7 +56,7 @@ public sealed partial class PlayerPage : Page
         _hideTimer?.Start();
     }
 
-    // â•â•â• Transport Controls â•â•â•
+    // ═════ Transport Controls ═════
 
     private void PlayPause_Click(object sender, RoutedEventArgs e)
     {
@@ -74,7 +71,7 @@ public sealed partial class PlayerPage : Page
     private void Forward_Click(object sender, RoutedEventArgs e) { ViewModel.SeekForwardCommand.Execute(null); ViewModel.SeekForwardCommand.Execute(null); ShowTransport(); }
     private void Back_Click(object sender, RoutedEventArgs e) => ViewModel.StopCommand.Execute(null);
 
-    // â•â•â• Track Selection â•â•â•
+    // ═════ Track Selection ═════
 
     private void ToggleTrackPanel_Click(object sender, RoutedEventArgs e)
     {
@@ -104,6 +101,5 @@ public sealed partial class PlayerPage : Page
         }
     }
 
-    // Show transport on any interaction
     protected override void OnPointerMoved(PointerRoutedEventArgs e) => ShowTransport();
 }

@@ -25,12 +25,14 @@ public class LibraryViewModel : ObservableObject
 
     public ICommand LoadCommand { get; }
     public ICommand NavigateToItemCommand { get; }
+    public AsyncRelayCommand<string> LoadAsyncCommand { get; }
 
     public LibraryViewModel(JellyfinApiClient api, NavigationService nav)
     {
         _api = api;
         _nav = nav;
-        LoadCommand = new AsyncRelayCommand<string>(LoadAsync);
+        LoadAsyncCommand = new AsyncRelayCommand<string>(LoadAsync);
+        LoadCommand = LoadAsyncCommand;
         NavigateToItemCommand = new RelayCommand<BaseItemDto>(NavigateToItem);
     }
 

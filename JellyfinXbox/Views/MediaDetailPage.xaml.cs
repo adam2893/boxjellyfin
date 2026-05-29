@@ -1,8 +1,6 @@
 using System;
-using System.Threading.Tasks;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Media.Imaging;
 using JellyfinXbox.ViewModels;
 using JellyfinClient.Services;
@@ -13,27 +11,32 @@ public sealed partial class MediaDetailPage : Page
 {
     public MediaDetailViewModel ViewModel { get; }
 
+    private string? _pendingItemId;
+
     public MediaDetailPage(MediaDetailViewModel viewModel)
     {
         ViewModel = viewModel;
         InitializeComponent();
+        Loaded += OnLoaded;
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    public void Initialize(string itemId)
     {
-        base.OnNavigatedTo(e);
-        if (e.Parameter is string itemId)
-            _ = LoadSafeAsync(itemId);
+        _pendingItemId = itemId;
     }
 
-    private async Task LoadSafeAsync(string id)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        try
+        Loaded -= OnLoaded;
+        if (_pendingItemId != null)
         {
-            await ViewModel.LoadAsync(id);
-            LoadImages();
+            try
+            {
+                await ViewModel.LoadAsync(_pendingItemId);
+                LoadImages();
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Detail load failed: {ex.Message}"); }
         }
-        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Detail load failed: {ex.Message}"); }
     }
 
     private void LoadImages()

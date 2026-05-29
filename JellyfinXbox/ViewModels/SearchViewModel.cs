@@ -5,7 +5,6 @@ using JellyfinClient.Models;
 using JellyfinClient.Services;
 using JellyfinXbox.Services;
 using JellyfinXbox.Views;
-using System.Linq;
 
 namespace JellyfinXbox.ViewModels;
 
@@ -17,6 +16,7 @@ public class SearchViewModel : ObservableObject
     private string _query = "";
     private bool _isSearching;
     private bool _hasResults;
+    private bool _showViews = true;
 
     public string Query
     {
@@ -30,11 +30,14 @@ public class SearchViewModel : ObservableObject
 
     public bool IsSearching { get => _isSearching; set => SetProperty(ref _isSearching, value); }
     public bool HasResults { get => _hasResults; set => SetProperty(ref _hasResults, value); }
+    public bool ShowViews { get => _showViews; set => SetProperty(ref _showViews, value); }
 
     public ObservableCollection<BaseItemDto> Results { get; } = new();
+    public ObservableCollection<ViewItem> Views { get; } = new();
 
     public ICommand SearchCommand { get; }
     public ICommand NavigateToItemCommand { get; }
+    public ICommand NavigateToLibraryCommand { get; }
 
     public SearchViewModel(JellyfinApiClient api, NavigationService nav)
     {
@@ -42,17 +45,31 @@ public class SearchViewModel : ObservableObject
         _nav = nav;
         SearchCommand = new AsyncRelayCommand<string>(SearchAsync);
         NavigateToItemCommand = new RelayCommand<BaseItemDto>(NavigateToItem);
+        NavigateToLibraryCommand = new RelayCommand<ViewItem>(NavigateToLibrary);
+    }
+
+    public async Task LoadViewsAsync()
+    {
+        var views = await _api.GetViewsAsync();
+        Views.Clear();
+        foreach (var v in views) Views.Add(v);
     }
 
     private void OnQueryChanged(string value)
     {
-        if (string.IsNullOrWhiteSpace(value) || value.Length < 2)
+        if (string.IsNullOrWhiteSpace(value))
         {
             Results.Clear();
             HasResults = false;
+            ShowViews = true;
             return;
         }
-        SearchCommand.Execute(value);
+
+        if (value.Length >= 2)
+        {
+            ShowViews = false;
+            SearchCommand.Execute(value);
+        }
     }
 
     private async Task SearchAsync(string? query)
@@ -69,5 +86,10 @@ public class SearchViewModel : ObservableObject
     private void NavigateToItem(BaseItemDto? item)
     {
         if (item != null) _nav.NavigateTo(typeof(MediaDetailPage), item.Id);
+    }
+
+    private void NavigateToLibrary(ViewItem? view)
+    {
+        if (view != null) _nav.NavigateTo(typeof(LibraryPage), (view.Id, view.Name));
     }
 }

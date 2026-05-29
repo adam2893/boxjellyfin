@@ -1,10 +1,7 @@
 using System;
-using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
-using Windows.UI.Xaml.Input;
 using JellyfinClient.Models;
 using JellyfinXbox.Services;
 using JellyfinXbox.ViewModels;
@@ -16,30 +13,47 @@ public sealed partial class LibraryPage : Page
     private readonly NavigationService _nav;
     public LibraryViewModel ViewModel { get; }
 
+    private string? _pendingLibraryId;
+    private string? _pendingLibraryName;
+
     public LibraryPage(NavigationService nav, LibraryViewModel viewModel)
     {
         _nav = nav;
         ViewModel = viewModel;
         InitializeComponent();
+        Loaded += OnLoaded;
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    /// <summary>
+    /// NavigationService sets _frame.Content directly, bypassing OnNavigatedTo.
+    /// Instead, we pass parameters and trigger loading via the Loaded event.
+    /// </summary>
+    public void Initialize(string libraryId, string libraryName)
     {
-        base.OnNavigatedTo(e);
-        if (e.Parameter is ValueTuple<string, string> tuple)
+        _pendingLibraryId = libraryId;
+        _pendingLibraryName = libraryName;
+    }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= OnLoaded;
+        if (_pendingLibraryId != null)
         {
-            ViewModel.LibraryName = tuple.Item2;
-            _ = LoadSafeAsync(tuple.Item1);
+            ViewModel.LibraryName = _pendingLibraryName ?? "";
+            try
+            {
+                await ViewModel.LoadAsyncCommand.ExecuteAsync(_pendingLibraryId);
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Library load failed: {ex.Message}"); }
         }
     }
 
-    private async Task LoadSafeAsync(string id)
+    private void Item_Click(object sender, ItemClickEventArgs e)
     {
-        try { await ((AsyncRelayCommand<string>)ViewModel.LoadCommand).ExecuteAsync(id); }
-        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Library load failed: {ex.Message}"); }
+        if (e.ClickedItem is BaseItemDto item)
+            ViewModel.NavigateToItemCommand.Execute(item);
     }
 
-    private void Item_Click(object sender, ItemClickEventArgs e) { if (e.ClickedItem is BaseItemDto item) ViewModel.NavigateToItemCommand.Execute(item); }
     private void SortNewest_Click(object sender, RoutedEventArgs e) { _ = ViewModel.SortAsync("DateCreated", "Descending"); }
     private void SortOldest_Click(object sender, RoutedEventArgs e) { _ = ViewModel.SortAsync("DateCreated", "Ascending"); }
     private void SortTitle_Click(object sender, RoutedEventArgs e) { _ = ViewModel.SortAsync("SortName", "Ascending"); }

@@ -31,12 +31,14 @@
                       HorizontalAlignment="Center" VerticalAlignment="Center"
                       Foreground="{StaticResource AccentBrush}" />
 
-        <!-- Results -->
+        <!-- Search results (shown when query is active) -->
         <ListView Grid.Row="1"
+                  x:Name="ResultsList"
                   ItemsSource="{x:Bind ViewModel.Results, Mode=OneWay}"
                   SelectionMode="None"
                   IsItemClickEnabled="True"
-                  ItemClick="Result_Click">
+                  ItemClick="Result_Click"
+                  Visibility="{x:Bind ViewModel.HasResults, Mode=OneWay}">
             <ListView.ItemTemplate>
                 <DataTemplate>
                     <Grid ColumnSpacing="16" Padding="12" CornerRadius="10"
@@ -44,7 +46,6 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="80" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0" Width="80" Height="120"
@@ -64,5 +65,43 @@
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
+
+        <!-- Library views (shown when no query) -->
+        <ScrollViewer Grid.Row="1"
+                      x:Name="ViewsPanel"
+                      Visibility="{x:Bind ViewModel.ShowViews, Mode=OneWay}">
+            <GridView ItemsSource="{x:Bind ViewModel.Views, Mode=OneWay}"
+                      SelectionMode="None"
+                      IsItemClickEnabled="True"
+                      ItemClick="View_Click">
+                <GridView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsWrapGrid Orientation="Horizontal"
+                                       MaximumRowsOrColumns="4" />
+                    </ItemsPanelTemplate>
+                </GridView.ItemsPanel>
+                <GridView.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Width="280" Height="160" Spacing="12"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Border Width="280" Height="160"
+                                    CornerRadius="12"
+                                    Background="{StaticResource SurfaceTertiaryBrush}">
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
+                                    <FontIcon Glyph="&#xE8F1;"
+                                              FontSize="36"
+                                              Foreground="{StaticResource AccentBrush}"
+                                              HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="18" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </DataTemplate>
+                </GridView.ItemTemplate>
+            </GridView>
+        </ScrollViewer>
     </Grid>
 </Page>

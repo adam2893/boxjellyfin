@@ -1,11 +1,7 @@
-using Microsoft.UI.Xaml.Controls;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
 using JellyfinClient.Models;
 using JellyfinXbox.ViewModels;
-using System;
-using System.Threading.Tasks;
 
 namespace JellyfinXbox.Views;
 
@@ -17,18 +13,15 @@ public sealed partial class HomePage : Page
     {
         ViewModel = viewModel;
         InitializeComponent();
+        Loaded += OnLoaded;
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        base.OnNavigatedTo(e);
-        _ = LoadDataSafeAsync();
-    }
-
-    private async Task LoadDataSafeAsync()
-    {
-        try { await ((AsyncRelayCommand)ViewModel.LoadDataCommand).ExecuteAsync(); }
-        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"HomePage load failed: {ex.Message}"); }
+        // OnNavigatedTo doesn't fire with NavigationService (uses frame.Content = page).
+        // Loaded event is the reliable trigger for our service-locator navigation.
+        Loaded -= OnLoaded; // Only fire once
+        await ViewModel.LoadDataAsync();
     }
 
     private void MediaItem_Click(object sender, ItemClickEventArgs e)
