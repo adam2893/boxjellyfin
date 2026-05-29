@@ -27,6 +27,7 @@ public class HomeViewModel : ObservableObject
     public ObservableCollection<BaseItemDto> NextUp { get; } = new();
     public ObservableCollection<BaseItemDto> LatestMovies { get; } = new();
     public ObservableCollection<BaseItemDto> LatestShows { get; } = new();
+    public ObservableCollection<ViewItem> Views { get; } = new();
 
     public ICommand LoadDataCommand { get; }
     public ICommand NavigateToItemCommand { get; }
@@ -39,7 +40,7 @@ public class HomeViewModel : ObservableObject
         _nav = nav;
         LoadDataCommand = new AsyncRelayCommand(LoadDataAsync);
         NavigateToItemCommand = new RelayCommand<BaseItemDto>(NavigateToItem);
-        NavigateToLibraryCommand = new RelayCommand<BaseItemDto>(NavigateToLibrary);
+        NavigateToLibraryCommand = new RelayCommand<ViewItem>(NavigateToLibrary);
         NavigateToSearchCommand = new RelayCommand(NavigateToSearch);
 
         _api.OnAuthenticationChanged += () =>
@@ -70,6 +71,9 @@ public class HomeViewModel : ObservableObject
             HasNextUp = NextUp.Count > 0;
 
             var views = viewsTask.Result;
+            Views.Clear();
+            foreach (var v in views) Views.Add(v);
+
             LatestMovies.Clear();
             LatestShows.Clear();
 
@@ -97,9 +101,9 @@ public class HomeViewModel : ObservableObject
         if (item != null) _nav.NavigateTo(typeof(MediaDetailPage), item.Id);
     }
 
-    private void NavigateToLibrary(BaseItemDto? item)
+    private void NavigateToLibrary(ViewItem? view)
     {
-        if (item != null) _nav.NavigateTo(typeof(LibraryPage), (item.Id, item.Name));
+        if (view != null) _nav.NavigateTo(typeof(LibraryPage), (view.Id, view.Name));
     }
 
     private void NavigateToSearch() => _nav.NavigateTo(typeof(SearchPage));

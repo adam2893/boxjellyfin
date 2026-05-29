@@ -18,9 +18,7 @@ public sealed partial class HomePage : Page
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
-        // OnNavigatedTo doesn't fire with NavigationService (uses frame.Content = page).
-        // Loaded event is the reliable trigger for our service-locator navigation.
-        Loaded -= OnLoaded; // Only fire once
+        Loaded -= OnLoaded;
         await ViewModel.LoadDataAsync();
     }
 
@@ -28,5 +26,11 @@ public sealed partial class HomePage : Page
     {
         if (e.ClickedItem is BaseItemDto item)
             ViewModel.NavigateToItemCommand.Execute(item);
+    }
+
+    private void Library_Click(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is ViewItem view)
+            ViewModel.NavigateToLibraryCommand.Execute(view);
     }
 }

@@ -62,7 +62,8 @@
                             <Border Width="160" Height="240"
                                     CornerRadius="12"
                                     Background="{StaticResource SurfaceTertiaryBrush}">
-                                <Image Stretch="UniformToFill" />
+                                <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
+                                       Stretch="UniformToFill" />
                             </Border>
                             <TextBlock Text="{Binding Name}"
                                        FontSize="13" FontWeight="Medium"

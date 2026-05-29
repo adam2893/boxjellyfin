@@ -14,6 +14,33 @@ public sealed partial class SearchPage : Page
         ViewModel = viewModel;
         InitializeComponent();
         Loaded += OnLoaded;
+
+        // Manage visibility of overlapping panels (all in Grid.Row="2")
+        ViewModel.PropertyChanged += (s, e) =>
+        {
+            var dq = Windows.System.DispatcherQueue.GetForCurrentThread();
+            dq.TryEnqueue(() =>
+            {
+                if (ViewModel.IsSearching)
+                {
+                    LoadingRing.Visibility = Visibility.Visible;
+                    ViewsPanel.Visibility = Visibility.Collapsed;
+                    ResultsList.Visibility = Visibility.Collapsed;
+                }
+                else if (ViewModel.HasResults)
+                {
+                    LoadingRing.Visibility = Visibility.Collapsed;
+                    ViewsPanel.Visibility = Visibility.Collapsed;
+                    ResultsList.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    LoadingRing.Visibility = Visibility.Collapsed;
+                    ViewsPanel.Visibility = ViewModel.ShowViews ? Visibility.Visible : Visibility.Collapsed;
+                    ResultsList.Visibility = Visibility.Collapsed;
+                }
+            });
+        };
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)

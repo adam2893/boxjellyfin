@@ -76,9 +76,14 @@ public class SearchViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(query)) return;
         IsSearching = true;
+        ShowViews = false;
+        HasResults = false;
         var result = await _api.SearchAsync(query);
         Results.Clear();
-        foreach (var item in result.Items) Results.Add(item);
+        if (result.Items != null)
+        {
+            foreach (var item in result.Items) Results.Add(item);
+        }
         HasResults = Results.Count > 0;
         IsSearching = false;
     }

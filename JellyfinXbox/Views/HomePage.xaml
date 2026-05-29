@@ -1,16 +1,13 @@
 <Page
     x:Class="JellyfinXbox.Views.HomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:JellyfinXbox.Views">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <ScrollViewer VerticalScrollBarVisibility="Hidden"
                   HorizontalScrollMode="Disabled">
         <StackPanel Padding="60 40 60 60" Spacing="48">
 
-            <!-- ═══════════════════════════════════════ -->
-            <!--          WELCOME HEADER                 -->
-            <!-- ═══════════════════════════════════════ -->
+            <!-- ═══════════════ WELCOME HEADER ═══════════════ -->
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -24,20 +21,51 @@
                                FontSize="18"
                                Foreground="{StaticResource TextSecondaryBrush}" />
                 </StackPanel>
-                <!-- User avatar -->
-                <PersonPicture Grid.Column="1"
-                               Width="48" Height="48" />
+                <PersonPicture Grid.Column="1" Width="48" Height="48" />
             </Grid>
 
-            <!-- ═══════════════════════════════════════ -->
-            <!--          CONTINUE WATCHING               -->
-            <!-- ═══════════════════════════════════════ -->
+            <!-- ═══════════════ LIBRARIES ═══════════════ -->
+            <StackPanel Spacing="20">
+                <TextBlock Text="My Libraries"
+                           FontSize="24" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" />
+                <GridView x:Name="LibrariesGrid"
+                          ItemsSource="{x:Bind ViewModel.Views, Mode=OneWay}"
+                          SelectionMode="None"
+                          IsItemClickEnabled="True"
+                          ItemClick="Library_Click">
+                    <GridView.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="16" />
+                        </ItemsPanelTemplate>
+                    </GridView.ItemsPanel>
+                    <GridView.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="240" Height="140"
+                                    CornerRadius="12"
+                                    Background="{StaticResource SurfaceTertiaryBrush}">
+                                <StackPanel VerticalAlignment="Center"
+                                            HorizontalAlignment="Center" Spacing="12">
+                                    <FontIcon Glyph="&#xE8F1;" FontSize="32"
+                                              Foreground="{StaticResource AccentBrush}"
+                                              HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </GridView.ItemTemplate>
+                </GridView>
+            </StackPanel>
+
+            <!-- ═══════════════ CONTINUE WATCHING ═══════════════ -->
             <StackPanel Visibility="{x:Bind ViewModel.HasContinueWatching, Mode=OneWay}"
                         Spacing="20">
                 <TextBlock Text="Continue Watching"
                            FontSize="24" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}" />
-
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               HorizontalScrollMode="Enabled"
                               VerticalScrollMode="Disabled">
@@ -55,11 +83,10 @@
                                 <Grid Width="320" Height="180"
                                       CornerRadius="12"
                                       Background="{StaticResource SurfaceTertiaryBrush}">
-                                    <!-- Poster -->
                                     <Border CornerRadius="12">
-                                        <Image Stretch="UniformToFill" />
+                                        <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=400}"
+                                               Stretch="UniformToFill" />
                                     </Border>
-                                    <!-- Progress bar -->
                                     <StackPanel VerticalAlignment="Bottom"
                                                 Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
                                                 Padding="12 8" Spacing="4">
@@ -80,15 +107,12 @@
                 </ScrollViewer>
             </StackPanel>
 
-            <!-- ═══════════════════════════════════════ -->
-            <!--              NEXT UP                     -->
-            <!-- ═══════════════════════════════════════ -->
+            <!-- ═══════════════ NEXT UP ═══════════════ -->
             <StackPanel Visibility="{x:Bind ViewModel.HasNextUp, Mode=OneWay}"
                         Spacing="20">
                 <TextBlock Text="Next Up"
                            FontSize="24" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}" />
-
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               HorizontalScrollMode="Enabled"
                               VerticalScrollMode="Disabled">
@@ -107,7 +131,8 @@
                                       CornerRadius="12"
                                       Background="{StaticResource SurfaceTertiaryBrush}">
                                     <Border CornerRadius="12">
-                                        <Image Stretch="UniformToFill" />
+                                        <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=400}"
+                                               Stretch="UniformToFill" />
                                     </Border>
                                     <StackPanel VerticalAlignment="Bottom"
                                                 Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
@@ -128,15 +153,12 @@
                 </ScrollViewer>
             </StackPanel>
 
-            <!-- ═══════════════════════════════════════ -->
-            <!--           LATEST MOVIES                  -->
-            <!-- ═══════════════════════════════════════ -->
+            <!-- ═══════════════ LATEST MOVIES ═══════════════ -->
             <StackPanel Visibility="{x:Bind ViewModel.LatestMovies.Count, Mode=OneWay, Converter={StaticResource CountToVisibilityConverter}}"
                         Spacing="20">
                 <TextBlock Text="Latest Movies"
                            FontSize="24" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}" />
-
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               HorizontalScrollMode="Enabled"
                               VerticalScrollMode="Disabled">
@@ -155,7 +177,8 @@
                                     <Border Width="160" Height="240"
                                             CornerRadius="12"
                                             Background="{StaticResource SurfaceTertiaryBrush}">
-                                        <Image Stretch="UniformToFill" />
+                                        <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
+                                               Stretch="UniformToFill" />
                                     </Border>
                                     <TextBlock Text="{Binding Name}"
                                                FontSize="13" FontWeight="Medium"
@@ -172,15 +195,12 @@
                 </ScrollViewer>
             </StackPanel>
 
-            <!-- ═══════════════════════════════════════ -->
-            <!--          LATEST SHOWS                    -->
-            <!-- ═══════════════════════════════════════ -->
+            <!-- ═══════════════ LATEST SHOWS ═══════════════ -->
             <StackPanel Visibility="{x:Bind ViewModel.LatestShows.Count, Mode=OneWay, Converter={StaticResource CountToVisibilityConverter}}"
                         Spacing="20">
                 <TextBlock Text="Latest Shows"
                            FontSize="24" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}" />
-
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               HorizontalScrollMode="Enabled"
                               VerticalScrollMode="Disabled">
@@ -199,7 +219,8 @@
                                     <Border Width="160" Height="240"
                                             CornerRadius="12"
                                             Background="{StaticResource SurfaceTertiaryBrush}">
-                                        <Image Stretch="UniformToFill" />
+                                        <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
+                                               Stretch="UniformToFill" />
                                     </Border>
                                     <TextBlock Text="{Binding Name}"
                                                FontSize="13" FontWeight="Medium"

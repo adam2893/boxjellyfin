@@ -1,7 +1,10 @@
 using System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Data;
+using Windows.UI.Xaml.Media.Imaging;
 using System.Linq;
+using JellyfinClient.Models;
+using JellyfinClient.Services;
 
 namespace JellyfinXbox.Converters;
 
@@ -83,3 +86,21 @@ public class TicksToTimeSpanConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language)
         => throw new NotImplementedException();
 }
+
+public class ItemImageConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        if (value is not BaseItemDto item || string.IsNullOrEmpty(item.Id))
+            return null;
+
+        var api = App.GetService<JellyfinApiClient>();
+        var maxWidth = parameter is string w ? int.Parse(w) : 400;
+        var url = $"{api.ServerUrl}{api.GetImageUrl(item.Id, "Primary", maxWidth)}";
+        return new BitmapImage(new Uri(url));
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+

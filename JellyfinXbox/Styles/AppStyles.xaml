@@ -12,6 +12,7 @@
     <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
     <converters:TimeSpanFormatConverter x:Key="TimeSpanConverter" />
     <converters:TicksToTimeSpanConverter x:Key="TicksToTimeSpanConverter" />
+    <converters:ItemImageConverter x:Key="ItemImageConverter" />
 
     <!-- ═══════════════════════════════════════ -->
     <!--         NAV RADIO BUTTON STYLE           -->
