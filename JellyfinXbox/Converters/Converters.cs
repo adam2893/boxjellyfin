@@ -98,12 +98,12 @@ public class ItemImageConverter : IValueConverter
 
             var api = App.GetService<JellyfinApiClient>();
 
-            // Skip if item has no image tags — server has no image for this item
-            if (item.ImageTags == null || !item.ImageTags.ContainsKey("Primary"))
-                return null;
-
             // Skip if we're not authenticated yet (token needed for image URLs)
             if (string.IsNullOrEmpty(api.AccessToken) || string.IsNullOrEmpty(api.ServerUrl))
+                return null;
+
+            // Check if the item has a primary image
+            if (item.ImageTags == null || !item.ImageTags.ContainsKey("Primary"))
                 return null;
 
             var maxWidth = parameter is string w && int.TryParse(w, out var p) ? p : 400;
@@ -113,7 +113,11 @@ public class ItemImageConverter : IValueConverter
             var bitmap = new BitmapImage();
             bitmap.ImageFailed += (s, e) =>
             {
-                System.Diagnostics.Debug.WriteLine($"[ImageFailed] {fullUrl}");
+                System.Diagnostics.Debug.WriteLine($"[ImageFailed] {fullUrl} — {e.ErrorMessage}");
+            };
+            bitmap.ImageOpened += (s, e) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[ImageOK] {fullUrl}");
             };
             bitmap.UriSource = new Uri(fullUrl);
             return bitmap;

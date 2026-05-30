@@ -93,7 +93,10 @@ public class HomeViewModel : ObservableObject
             foreach (var item in movieTask.Result.Items) LatestMovies.Add(item);
             foreach (var item in showTask.Result.Items) LatestShows.Add(item);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[HomePage] LoadDataAsync failed: {ex}");
+        }
 
         IsLoading = false;
     }

@@ -33,6 +33,7 @@
                           ItemsSource="{x:Bind ViewModel.Views, Mode=OneWay}"
                           SelectionMode="None"
                           IsItemClickEnabled="True"
+                          IsFocusEngagementEnabled="True"
                           ItemClick="Library_Click">
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -69,7 +70,7 @@
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               HorizontalScrollMode="Enabled"
                               VerticalScrollMode="Disabled">
-                    <GridView ItemsSource="{x:Bind ViewModel.ContinueWatching}"
+                    <GridView IsFocusEngagementEnabled="True" ItemsSource="{x:Bind ViewModel.ContinueWatching}"
                               SelectionMode="None"
                               IsItemClickEnabled="True"
                               ItemClick="MediaItem_Click">
@@ -116,7 +117,7 @@
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               HorizontalScrollMode="Enabled"
                               VerticalScrollMode="Disabled">
-                    <GridView ItemsSource="{x:Bind ViewModel.NextUp}"
+                    <GridView IsFocusEngagementEnabled="True" ItemsSource="{x:Bind ViewModel.NextUp}"
                               SelectionMode="None"
                               IsItemClickEnabled="True"
                               ItemClick="MediaItem_Click">
@@ -162,7 +163,7 @@
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               HorizontalScrollMode="Enabled"
                               VerticalScrollMode="Disabled">
-                    <GridView ItemsSource="{x:Bind ViewModel.LatestMovies}"
+                    <GridView IsFocusEngagementEnabled="True" ItemsSource="{x:Bind ViewModel.LatestMovies}"
                               SelectionMode="None"
                               IsItemClickEnabled="True"
                               ItemClick="MediaItem_Click">
@@ -204,7 +205,7 @@
                 <ScrollViewer HorizontalScrollBarVisibility="Hidden"
                               HorizontalScrollMode="Enabled"
                               VerticalScrollMode="Disabled">
-                    <GridView ItemsSource="{x:Bind ViewModel.LatestShows}"
+                    <GridView IsFocusEngagementEnabled="True" ItemsSource="{x:Bind ViewModel.LatestShows}"
                               SelectionMode="None"
                               IsItemClickEnabled="True"
                               ItemClick="MediaItem_Click">
@@ -240,3 +241,4 @@
         </StackPanel>
     </ScrollViewer>
 </Page>
+

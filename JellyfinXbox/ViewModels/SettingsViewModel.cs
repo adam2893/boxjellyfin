@@ -19,6 +19,7 @@ public class SettingsViewModel : ObservableObject
     private string _serverName = "";
     private string _serverVersion = "";
     private string _userName = "";
+    private string _clientVersion = "1.0.5.0";
     private int _selectedBitrateIndex;
     private int _selectedSubtitleModeIndex;
     private int _subtitleFontSize;
@@ -29,6 +30,7 @@ public class SettingsViewModel : ObservableObject
     public string ServerName { get => _serverName; set => SetProperty(ref _serverName, value); }
     public string ServerVersion { get => _serverVersion; set => SetProperty(ref _serverVersion, value); }
     public string UserName { get => _userName; set => SetProperty(ref _userName, value); }
+    public string ClientVersion => _clientVersion;
 
     public int SelectedBitrateIndex
     {

@@ -48,6 +48,7 @@
                       ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
                       SelectionMode="None"
                       IsItemClickEnabled="True"
+                      IsFocusEngagementEnabled="True"
                       ItemClick="Item_Click">
                 <GridView.ItemsPanel>
                     <ItemsPanelTemplate>

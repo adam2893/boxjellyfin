@@ -64,7 +64,7 @@ public partial class App : Application
         _factories[typeof(HomePage)] = () => new HomePage(GetViewModel<HomeViewModel>());
         _factories[typeof(MediaDetailPage)] = () => new MediaDetailPage(GetViewModel<MediaDetailViewModel>());
         _factories[typeof(PlayerPage)] = () => new PlayerPage(GetViewModel<PlayerViewModel>());
-        _factories[typeof(SearchPage)] = () => new SearchPage(GetViewModel<SearchViewModel>());
+        _factories[typeof(SearchPage)] = () => new SearchPage(GetViewModel<SearchViewModel>(), GetService<NavigationService>());
         _factories[typeof(SettingsPage)] = () => new SettingsPage(GetViewModel<SettingsViewModel>());
         _factories[typeof(QuickConnectPage)] = () => new QuickConnectPage(GetViewModel<QuickConnectViewModel>());
         _factories[typeof(LibraryPage)] = () => new LibraryPage(nav, GetViewModel<LibraryViewModel>());

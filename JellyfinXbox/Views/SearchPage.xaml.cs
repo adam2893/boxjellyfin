@@ -1,16 +1,19 @@
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using JellyfinClient.Models;
+using JellyfinXbox.Services;
 using JellyfinXbox.ViewModels;
 
 namespace JellyfinXbox.Views;
 
 public sealed partial class SearchPage : Page
 {
+    private readonly NavigationService _nav;
     public SearchViewModel ViewModel { get; }
 
-    public SearchPage(SearchViewModel viewModel)
+    public SearchPage(SearchViewModel viewModel, NavigationService nav)
     {
+        _nav = nav;
         ViewModel = viewModel;
         InitializeComponent();
         Loaded += OnLoaded;
@@ -61,4 +64,6 @@ public sealed partial class SearchPage : Page
         if (e.ClickedItem is ViewItem view)
             ViewModel.NavigateToLibraryCommand.Execute(view);
     }
+
+    private void Back_Click(object sender, RoutedEventArgs e) => _nav.GoBack();
 }

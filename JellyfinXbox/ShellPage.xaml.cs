@@ -1,4 +1,5 @@
 using Windows.Storage;
+using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -19,7 +20,23 @@ public sealed partial class ShellPage : Page
         InitializeComponent();
         _nav = nav;
         _nav.Initialize(ContentFrame);
+
+        // Handle Xbox B-button and system back button
+        SystemNavigationManager.GetForCurrentView().BackRequested += OnBackRequested;
+
         Loaded += OnLoaded;
+    }
+
+    /// <summary>
+    /// Handles Xbox B-button (controller) and system back button.
+    /// </summary>
+    private void OnBackRequested(object sender, BackRequestedEventArgs e)
+    {
+        if (_nav.CanGoBack)
+        {
+            e.Handled = true;
+            _nav.GoBack();
+        }
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)

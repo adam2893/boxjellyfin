@@ -11,9 +11,16 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <TextBlock Grid.Row="0" Text="Search" FontSize="36" FontWeight="Bold"
-                   Foreground="{StaticResource TextPrimaryBrush}"
-                   Margin="0 0 0 24" />
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="16"
+                    Margin="0 0 0 24">
+            <Button Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                    Padding="12" CornerRadius="8" Click="Back_Click">
+                <FontIcon Glyph="&#xE72B;" FontSize="18" />
+            </Button>
+            <TextBlock Text="Search" FontSize="36" FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       VerticalAlignment="Center" />
+        </StackPanel>
 
         <!-- Search bar -->
         <AutoSuggestBox Grid.Row="1"
