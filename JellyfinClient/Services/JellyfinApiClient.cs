@@ -67,7 +67,7 @@ public class JellyfinApiClient : IJellyfinClient
     // X-Emby-Authorization header values
     private const string ClientName = "BoxJellyfin";
     private const string DeviceName = "Xbox";
-    private const string AppVersion = "1.0.6.3";
+    private const string AppVersion = "1.0.6.4";
     private static readonly string DeviceId = Guid.NewGuid().ToString("N");
 
     public JellyfinApiClient(HttpClient http)
