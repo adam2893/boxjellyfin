@@ -91,13 +91,38 @@ public class ItemImageConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        if (value is not BaseItemDto item || string.IsNullOrEmpty(item.Id))
-            return null;
+        try
+        {
+            if (value is not BaseItemDto item || string.IsNullOrEmpty(item.Id))
+                return null;
 
-        var api = App.GetService<JellyfinApiClient>();
-        var maxWidth = parameter is string w ? int.Parse(w) : 400;
-        var url = $"{api.ServerUrl}{api.GetImageUrl(item.Id, "Primary", maxWidth)}";
-        return new BitmapImage(new Uri(url));
+            var api = App.GetService<JellyfinApiClient>();
+
+            // Skip if item has no image tags — server has no image for this item
+            if (item.ImageTags == null || !item.ImageTags.ContainsKey("Primary"))
+                return null;
+
+            // Skip if we're not authenticated yet (token needed for image URLs)
+            if (string.IsNullOrEmpty(api.AccessToken) || string.IsNullOrEmpty(api.ServerUrl))
+                return null;
+
+            var maxWidth = parameter is string w && int.TryParse(w, out var p) ? p : 400;
+            var imagePath = api.GetImageUrl(item.Id, "Primary", maxWidth);
+            var fullUrl = $"{api.ServerUrl}{imagePath}";
+
+            var bitmap = new BitmapImage();
+            bitmap.ImageFailed += (s, e) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[ImageFailed] {fullUrl}");
+            };
+            bitmap.UriSource = new Uri(fullUrl);
+            return bitmap;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ItemImageConverter] Error: {ex.Message}");
+            return null;
+        }
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)

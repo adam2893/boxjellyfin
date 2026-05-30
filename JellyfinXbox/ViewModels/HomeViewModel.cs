@@ -72,7 +72,9 @@ public class HomeViewModel : ObservableObject
 
             var views = viewsTask.Result;
             Views.Clear();
-            foreach (var v in views) Views.Add(v);
+            // Exclude Live TV (not supported) and empty collection types
+            foreach (var v in views.Where(v => v.CollectionType != "livetv"))
+                Views.Add(v);
 
             LatestMovies.Clear();
             LatestShows.Clear();
