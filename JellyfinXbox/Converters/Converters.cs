@@ -101,7 +101,10 @@ public class ItemImageConverter : IValueConverter
                 return null;
 
             if (item.ImageTags == null || !item.ImageTags.TryGetValue("Primary", out var tag))
+            {
+                App.Log($"[Image] No Primary tag for '{item.Name}' (ImageTags count={item.ImageTags?.Count ?? 0})");
                 return null;
+            }
 
             var maxWidth = parameter is string w && int.TryParse(w, out var p) ? p : 400;
             var imagePath = api.GetImageUrl(item.Id, "Primary", maxWidth, tag: tag);

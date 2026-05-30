@@ -67,7 +67,7 @@ public class JellyfinApiClient : IJellyfinClient
     // X-Emby-Authorization header values
     private const string ClientName = "BoxJellyfin";
     private const string DeviceName = "Xbox";
-    private const string AppVersion = "1.0.6.4";
+    private const string AppVersion = "1.0.6.5";
     private static readonly string DeviceId = Guid.NewGuid().ToString("N");
 
     public JellyfinApiClient(HttpClient http)
@@ -304,7 +304,7 @@ public class JellyfinApiClient : IJellyfinClient
         string? includeItemTypes = null, CancellationToken ct = default)
     {
         var url = $"/Items?userId={CurrentUser!.Id}&parentId={parentId}&startIndex={startIndex}&limit={limit}" +
-            "&Fields=PrimaryImageAspectRatio,BasicSyncInfo,MediaSources,ImageTags&EnableImages=true&EnableImageTypes=Primary,Thumb,Backdrop&ImageTypeLimit=3";
+            "&fields=PrimaryImageAspectRatio,BasicSyncInfo,MediaSources,ImageTags&enableImages=true&enableImageTypes=Primary,Thumb,Backdrop&imageTypeLimit=3";
 
         if (!string.IsNullOrEmpty(sortBy)) url += $"&sortBy={sortBy}";
         if (!string.IsNullOrEmpty(sortOrder)) url += $"&sortOrder={sortOrder}";
@@ -323,7 +323,7 @@ public class JellyfinApiClient : IJellyfinClient
     {
         var url = $"/Items?userId={CurrentUser!.Id}&Filters=IsResumable&SortBy=DatePlayed&SortOrder=Descending" +
             $"&Recursive=true&IncludeItemTypes=Movie,Episode&Limit={limit}" +
-            "&Fields=PrimaryImageAspectRatio,MediaSources,ImageTags&EnableImages=true&EnableImageTypes=Primary,Thumb,Backdrop&ImageTypeLimit=3";
+            "&fields=PrimaryImageAspectRatio,MediaSources,ImageTags&enableImages=true&enableImageTypes=Primary,Thumb,Backdrop&imageTypeLimit=3";
         try
         {
             var result = await _http.GetFromJsonAsync<ItemsResult>(url, _jsonOpts, ct);
@@ -335,7 +335,7 @@ public class JellyfinApiClient : IJellyfinClient
     public async Task<ItemsResult> GetNextUpAsync(string? seriesId = null, int limit = 12, CancellationToken ct = default)
     {
         var url = $"/Shows/NextUp?userId={CurrentUser!.Id}&limit={limit}" +
-            "&Fields=PrimaryImageAspectRatio,MediaSources,ImageTags&EnableImages=true&EnableImageTypes=Primary,Thumb,Backdrop&ImageTypeLimit=3";
+            "&fields=PrimaryImageAspectRatio,MediaSources,ImageTags&enableImages=true&enableImageTypes=Primary,Thumb,Backdrop&imageTypeLimit=3";
         if (!string.IsNullOrEmpty(seriesId)) url += $"&seriesId={seriesId}";
         try
         {
@@ -348,7 +348,7 @@ public class JellyfinApiClient : IJellyfinClient
     public async Task<BaseItemDto?> GetItemAsync(string itemId, CancellationToken ct = default)
     {
         var url = $"/Items/{itemId}?userId={CurrentUser!.Id}" +
-            "&Fields=PrimaryImageAspectRatio,MediaSources,ImageTags,People,Studios,Genres,Overview,MediaStreams&EnableImages=true";
+            "&fields=PrimaryImageAspectRatio,MediaSources,ImageTags,People,Studios,Genres,Overview,MediaStreams&enableImages=true";
         try
         {
             return await _http.GetFromJsonAsync<BaseItemDto>(url, _jsonOpts, ct);
@@ -359,7 +359,7 @@ public class JellyfinApiClient : IJellyfinClient
     public async Task<ItemsResult> GetSeasonsAsync(string seriesId, CancellationToken ct = default)
     {
         var url = $"/Shows/{seriesId}/Seasons?userId={CurrentUser!.Id}" +
-            "&Fields=PrimaryImageAspectRatio,ItemCounts,ImageTags&EnableImages=true&EnableImageTypes=Primary&ImageTypeLimit=3";
+            "&fields=PrimaryImageAspectRatio,ItemCounts,ImageTags&enableImages=true&enableImageTypes=Primary&imageTypeLimit=3";
         try
         {
             return await _http.GetFromJsonAsync<ItemsResult>(url, _jsonOpts, ct) ?? new();
@@ -370,7 +370,7 @@ public class JellyfinApiClient : IJellyfinClient
     public async Task<ItemsResult> GetEpisodesAsync(string seriesId, string seasonId, CancellationToken ct = default)
     {
         var url = $"/Shows/{seriesId}/Episodes?seasonId={seasonId}&userId={CurrentUser!.Id}" +
-            "&Fields=PrimaryImageAspectRatio,MediaSources,ImageTags&EnableImages=true&EnableImageTypes=Primary,Thumb&ImageTypeLimit=3";
+            "&fields=PrimaryImageAspectRatio,MediaSources,ImageTags&enableImages=true&enableImageTypes=Primary,Thumb&imageTypeLimit=3";
         try
         {
             return await _http.GetFromJsonAsync<ItemsResult>(url, _jsonOpts, ct) ?? new();
@@ -386,7 +386,7 @@ public class JellyfinApiClient : IJellyfinClient
     {
         var url = $"/Items?searchTerm={Uri.EscapeDataString(query)}&userId={CurrentUser!.Id}&limit={limit}" +
             "&IncludeItemTypes=Movie,Series,Episode" +
-            "&Fields=PrimaryImageAspectRatio,MediaSources,ImageTags&EnableImages=true&EnableImageTypes=Primary,Thumb&ImageTypeLimit=3&Recursive=true";
+            "&fields=PrimaryImageAspectRatio,MediaSources,ImageTags&enableImages=true&enableImageTypes=Primary,Thumb&imageTypeLimit=3&Recursive=true";
         try
         {
             return await _http.GetFromJsonAsync<ItemsResult>(url, _jsonOpts, ct) ?? new();
@@ -559,4 +559,5 @@ public class JellyfinApiClient : IJellyfinClient
     public List<MediaStream> GetSubtitleStreams(MediaSourceInfo source) =>
         source.MediaStreams.Where(s => s.Type == "Subtitle").OrderBy(s => !s.IsDefault).ToList();
 }
+
 
