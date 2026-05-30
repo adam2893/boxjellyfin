@@ -73,11 +73,12 @@ public class HomeViewModel : ObservableObject
             var views = viewsTask.Result;
             Views.Clear();
 
-            // Debug: log all views from server
+            // Log all views from server to file
+            App.Log($"[Views] Server returned {views.Count} views:");
             foreach (var v in views)
-                System.Diagnostics.Debug.WriteLine($"[HomePage] View: Id={v.Id} Name={v.Name} Type={v.CollectionType}");
+                App.Log($"  Id={v.Id} Name=\"{v.Name}\" CollectionType={v.CollectionType}");
 
-            // Exclude Live TV (not supported) and empty collection types
+            // Exclude Live TV (not supported)
             foreach (var v in views.Where(v => v.CollectionType != "livetv"))
                 Views.Add(v);
 
@@ -100,7 +101,7 @@ public class HomeViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[HomePage] LoadDataAsync failed: {ex}");
+            App.LogWarn($"[HomePage] LoadDataAsync failed: {ex.GetType().Name}: {ex.Message}");
         }
 
         IsLoading = false;

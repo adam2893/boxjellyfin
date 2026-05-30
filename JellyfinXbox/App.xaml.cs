@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
+using Windows.Storage;
 using Windows.UI.Xaml;
 using Windows.ApplicationModel.Activation;
 using JellyfinClient.Services;
@@ -13,6 +15,8 @@ namespace JellyfinXbox;
 public partial class App : Application
 {
     private static readonly Dictionary<Type, object> _services = new();
+    private static readonly object _logLock = new();
+    private static string? _logPath;
     private static readonly Dictionary<Type, Func<object>> _factories = new();
 
     public static T GetService<T>() where T : class => (T)_services[typeof(T)];
@@ -91,6 +95,9 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        // File-based logging (Debug.WriteLine is invisible on Xbox)
+        InitLogging();
+
         // Xbox TV-safe area / full-screen setup
         var view = Windows.UI.ViewManagement.ApplicationView.GetForCurrentView();
         view.SetDesiredBoundsMode(Windows.UI.ViewManagement.ApplicationViewBoundsMode.UseCoreWindow);
@@ -99,4 +106,45 @@ public partial class App : Application
         Window.Current.Content = shell;
         Window.Current.Activate();
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // File-based logging (Xbox can't see Debug output)
+    // Log file: ApplicationData.LocalFolder\jellyfinxbox.log
+    // ═══════════════════════════════════════════════════════════════
+    private static void InitLogging()
+    {
+        try
+        {
+            _logPath = Path.Combine(ApplicationData.Current.LocalFolder.Path, "jellyfinxbox.log");
+            var ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            File.WriteAllText(_logPath, $"[{ts}] JellyfinXbox v1.0.6.1 started{Environment.NewLine}");
+        }
+        catch { _logPath = null; }
+    }
+
+    public static void Log(string message)
+    {
+        try
+        {
+            if (_logPath == null) return;
+            var ts = DateTime.Now.ToString("HH:mm:ss");
+            lock (_logLock)
+                File.AppendAllText(_logPath, $"[{ts}] {message}{Environment.NewLine}");
+        }
+        catch { }
+    }
+
+    public static void LogWarn(string message)
+    {
+        try
+        {
+            if (_logPath == null) return;
+            var ts = DateTime.Now.ToString("HH:mm:ss");
+            lock (_logLock)
+                File.AppendAllText(_logPath, $"[{ts}] WARN {message}{Environment.NewLine}");
+        }
+        catch { }
+    }
+
+    public static string? LogPath => _logPath;
 }

@@ -19,7 +19,8 @@ public class SettingsViewModel : ObservableObject
     private string _serverName = "";
     private string _serverVersion = "";
     private string _userName = "";
-    private string _clientVersion = "1.0.6.1";
+    private string _clientVersion = "1.0.6.2";
+    private string _logPath = "";
     private int _selectedBitrateIndex;
     private int _selectedSubtitleModeIndex;
     private int _subtitleFontSize;
@@ -31,6 +32,7 @@ public class SettingsViewModel : ObservableObject
     public string ServerVersion { get => _serverVersion; set => SetProperty(ref _serverVersion, value); }
     public string UserName { get => _userName; set => SetProperty(ref _userName, value); }
     public string ClientVersion => _clientVersion;
+    public string LogPath { get => _logPath; set => SetProperty(ref _logPath, value); }
 
     public int SelectedBitrateIndex
     {
@@ -117,6 +119,7 @@ public class SettingsViewModel : ObservableObject
         ServerName = _api.ServerInfo?.ServerName ?? "";
         ServerVersion = _api.ServerInfo?.Version ?? "";
         UserName = _api.CurrentUser?.Name ?? "";
+        LogPath = App.LogPath ?? "(unavailable)";
     }
 
     private void OnBitrateChanged(int value)

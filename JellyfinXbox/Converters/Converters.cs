@@ -97,35 +97,24 @@ public class ItemImageConverter : IValueConverter
                 return null;
 
             var api = App.GetService<JellyfinApiClient>();
-
-            // Skip if we're not authenticated yet (token needed for image URLs)
             if (string.IsNullOrEmpty(api.AccessToken) || string.IsNullOrEmpty(api.ServerUrl))
                 return null;
 
-            // Check if the item has a primary image
-            if (item.ImageTags == null || !item.ImageTags.ContainsKey("Primary"))
+            if (item.ImageTags == null || !item.ImageTags.TryGetValue("Primary", out var tag))
                 return null;
 
-            var tag = item.ImageTags["Primary"];
             var maxWidth = parameter is string w && int.TryParse(w, out var p) ? p : 400;
             var imagePath = api.GetImageUrl(item.Id, "Primary", maxWidth, tag: tag);
             var fullUrl = $"{api.ServerUrl}{imagePath}";
 
-            var bitmap = new BitmapImage();
-            bitmap.ImageFailed += (s, e) =>
-            {
-                System.Diagnostics.Debug.WriteLine($"[ImageFailed] {fullUrl} — {e.ErrorMessage}");
-            };
-            bitmap.ImageOpened += (s, e) =>
-            {
-                System.Diagnostics.Debug.WriteLine($"[ImageOK] {fullUrl}");
-            };
-            bitmap.UriSource = new Uri(fullUrl);
-            return bitmap;
+            // Return string URL — UWP Image control handles loading natively.
+            // Avoids BitmapImage threading/caching/memory issues on Xbox.
+            App.Log($"[Image] Loading: {fullUrl}");
+            return fullUrl;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[ItemImageConverter] Error: {ex.Message}");
+            App.LogWarn($"[Image] Converter failed: {ex.Message}");
             return null;
         }
     }

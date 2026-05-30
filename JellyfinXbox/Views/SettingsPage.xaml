@@ -141,6 +141,7 @@
                     <views:InfoRow Label="URL" Value="{x:Bind ViewModel.ServerUrl}" />
                     <views:InfoRow Label="User" Value="{x:Bind ViewModel.UserName}" />
                     <views:InfoRow Label="Client" Value="{x:Bind ViewModel.ClientVersion}" />
+                    <views:InfoRow Label="Log file" Value="{x:Bind ViewModel.LogPath}" />
                 </StackPanel>
             </StackPanel>
 

@@ -10,7 +10,7 @@
   <Identity
     Name="com.zhipu.jellyfinxbox"
     Publisher="CN=AutoClaw"
-    Version="1.0.6.1" />
+    Version="1.0.6.2" />
   <mp:PhoneIdentity PhoneProductId="00000000-0000-0000-0000-000000000000" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
 
   <Properties>
