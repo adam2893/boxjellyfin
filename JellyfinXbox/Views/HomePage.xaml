@@ -29,9 +29,6 @@
                 <TextBlock Text="My Libraries"
                            FontSize="24" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}" />
-                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                              HorizontalScrollMode="Enabled"
-                              VerticalScrollMode="Disabled">
                 <GridView x:Name="LibrariesGrid"
                           ItemsSource="{x:Bind ViewModel.Views, Mode=OneWay}"
                           SelectionMode="None"
@@ -62,7 +59,6 @@
                         </DataTemplate>
                     </GridView.ItemTemplate>
                 </GridView>
-                </ScrollViewer>
             </StackPanel>
 
             <!-- ═══════════════ CONTINUE WATCHING ═══════════════ -->
