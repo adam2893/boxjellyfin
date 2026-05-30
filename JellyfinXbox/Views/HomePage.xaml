@@ -37,7 +37,9 @@
                           ItemClick="Library_Click">
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="16" />
+                            <ItemsWrapGrid Orientation="Horizontal"
+                                           MaximumRowsOrColumns="4"
+                                           HorizontalAlignment="Left" />
                         </ItemsPanelTemplate>
                     </GridView.ItemsPanel>
                     <GridView.ItemTemplate>
