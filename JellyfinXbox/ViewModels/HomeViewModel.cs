@@ -72,6 +72,11 @@ public class HomeViewModel : ObservableObject
 
             var views = viewsTask.Result;
             Views.Clear();
+
+            // Debug: log all views from server
+            foreach (var v in views)
+                System.Diagnostics.Debug.WriteLine($"[HomePage] View: Id={v.Id} Name={v.Name} Type={v.CollectionType}");
+
             // Exclude Live TV (not supported) and empty collection types
             foreach (var v in views.Where(v => v.CollectionType != "livetv"))
                 Views.Add(v);

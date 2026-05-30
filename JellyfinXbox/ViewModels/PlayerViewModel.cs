@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -110,7 +111,7 @@ public class PlayerViewModel : ObservableObject, IDisposable
 
         var backdropId = item.BackdropImageTags.Count > 0 ? item.Id : item.ParentBackdropItemId;
         if (!string.IsNullOrEmpty(backdropId))
-            BackdropUrl = $"{_api.ServerUrl}{_api.GetBackdropUrl(backdropId, maxWidth: 1920)}";
+            BackdropUrl = $"{_api.ServerUrl}{_api.GetBackdropUrl(backdropId, maxWidth: 1920, tag: item.BackdropImageTags.FirstOrDefault())}";
 
         var maxBitrate = _api.Settings.MaxStreamingBitrate;
         IsBuffering = true;

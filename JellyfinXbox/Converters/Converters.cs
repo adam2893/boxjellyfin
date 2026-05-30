@@ -106,8 +106,9 @@ public class ItemImageConverter : IValueConverter
             if (item.ImageTags == null || !item.ImageTags.ContainsKey("Primary"))
                 return null;
 
+            var tag = item.ImageTags["Primary"];
             var maxWidth = parameter is string w && int.TryParse(w, out var p) ? p : 400;
-            var imagePath = api.GetImageUrl(item.Id, "Primary", maxWidth);
+            var imagePath = api.GetImageUrl(item.Id, "Primary", maxWidth, tag: tag);
             var fullUrl = $"{api.ServerUrl}{imagePath}";
 
             var bitmap = new BitmapImage();

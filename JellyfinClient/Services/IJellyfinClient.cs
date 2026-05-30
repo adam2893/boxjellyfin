@@ -59,8 +59,8 @@ public interface IJellyfinClient
     string BuildTranscodeUrlWithTracks(string itemId, MediaSourceInfo source, int? audioIndex = null, int? subtitleIndex = null);
 
     // ── Images ──────────────────────────────────────────────────
-    string GetImageUrl(string itemId, string imageType = "Primary", int? maxWidth = null, int? maxHeight = null);
-    string GetBackdropUrl(string itemId, int index = 0, int? maxWidth = null);
+    string GetImageUrl(string itemId, string imageType = "Primary", int? maxWidth = null, int? maxHeight = null, string? tag = null);
+    string GetBackdropUrl(string itemId, int index = 0, int? maxWidth = null, string? tag = null);
     string GetPersonImageUrl(string personId, int? maxWidth = null);
 
     // ── Helpers ─────────────────────────────────────────────────

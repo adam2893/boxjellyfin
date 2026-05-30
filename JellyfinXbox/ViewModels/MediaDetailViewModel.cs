@@ -92,10 +92,10 @@ public class MediaDetailViewModel : ObservableObject
             ? $"★ {item.CommunityRating.Value:F1}"
             : null;
 
-        PosterUrl = _api.GetImageUrl(item.Id, "Primary");
+        PosterUrl = item.ImageTags.TryGetValue("Primary", out var posterTag) ? _api.GetImageUrl(item.Id, "Primary", tag: posterTag) : null;
         var backdropId = item.BackdropImageTags.Count > 0 ? item.Id : item.ParentBackdropItemId;
         if (!string.IsNullOrEmpty(backdropId))
-            BackdropUrl = _api.GetBackdropUrl(backdropId, maxWidth: 1920);
+            BackdropUrl = _api.GetBackdropUrl(backdropId, maxWidth: 1920, tag: item.BackdropImageTags.FirstOrDefault());
 
         Genres.Clear();
         foreach (var g in item.Genres) Genres.Add(g);

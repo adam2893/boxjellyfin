@@ -42,42 +42,42 @@
             </StackPanel>
         </StackPanel>
 
-        <!-- Items grid -->
-        <ScrollViewer Grid.Row="1" Padding="60 24">
-            <GridView x:Name="ItemsGrid"
-                      ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
-                      SelectionMode="None"
-                      IsItemClickEnabled="True"
-                      IsFocusEngagementEnabled="True"
-                      ItemClick="Item_Click">
-                <GridView.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <ItemsWrapGrid Orientation="Horizontal"
-                                       MaximumRowsOrColumns="6"
-                                       ItemWidth="180" />
-                    </ItemsPanelTemplate>
-                </GridView.ItemsPanel>
-                <GridView.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Width="160" Spacing="8">
-                            <Border Width="160" Height="240"
-                                    CornerRadius="12"
-                                    Background="{StaticResource SurfaceTertiaryBrush}">
-                                <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
-                                       Stretch="UniformToFill" />
-                            </Border>
-                            <TextBlock Text="{Binding Name}"
-                                       FontSize="13" FontWeight="Medium"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       TextTrimming="CharacterEllipsis"
-                                       MaxLines="2" />
-                            <TextBlock Text="{Binding ProductionYear}"
-                                       FontSize="12"
-                                       Foreground="{StaticResource TextMutedBrush}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </GridView.ItemTemplate>
-            </GridView>
-        </ScrollViewer>
+        <!-- Items grid — no ScrollViewer wrapper (Xbox: ScrollViewer steals gamepad focus from GridView) -->
+        <GridView Grid.Row="1"
+                  x:Name="ItemsGrid"
+                  ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}"
+                  SelectionMode="None"
+                  IsItemClickEnabled="True"
+                  IsFocusEngagementEnabled="True"
+                  ItemClick="Item_Click"
+                  Padding="60 24">
+            <GridView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid Orientation="Horizontal"
+                                   MaximumRowsOrColumns="6"
+                                   ItemWidth="180" />
+                </ItemsPanelTemplate>
+            </GridView.ItemsPanel>
+            <GridView.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Width="160" Spacing="8">
+                        <Border Width="160" Height="240"
+                                CornerRadius="12"
+                                Background="{StaticResource SurfaceTertiaryBrush}">
+                            <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
+                                   Stretch="UniformToFill" />
+                        </Border>
+                        <TextBlock Text="{Binding Name}"
+                                   FontSize="13" FontWeight="Medium"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   MaxLines="2" />
+                        <TextBlock Text="{Binding ProductionYear}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource TextMutedBrush}" />
+                    </StackPanel>
+                </DataTemplate>
+            </GridView.ItemTemplate>
+        </GridView>
     </Grid>
 </Page>
