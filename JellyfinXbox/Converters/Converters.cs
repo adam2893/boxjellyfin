@@ -93,12 +93,28 @@ public class ItemImageConverter : IValueConverter
     {
         try
         {
-            if (value is not BaseItemDto item || string.IsNullOrEmpty(item.Id))
+            if (value is not BaseItemDto item)
+            {
+                App.Log($"[Image] Convert called with non-BaseItemDto: {value?.GetType().Name ?? "null"}");
                 return null;
+            }
+            if (string.IsNullOrEmpty(item.Id))
+            {
+                App.Log($"[Image] Item has empty Id: '{item.Name}'");
+                return null;
+            }
 
             var api = App.GetService<JellyfinApiClient>();
-            if (string.IsNullOrEmpty(api.AccessToken) || string.IsNullOrEmpty(api.ServerUrl))
+            if (string.IsNullOrEmpty(api.AccessToken))
+            {
+                App.Log($"[Image] No AccessToken yet for '{item.Name}'");
                 return null;
+            }
+            if (string.IsNullOrEmpty(api.ServerUrl))
+            {
+                App.Log($"[Image] No ServerUrl yet for '{item.Name}'");
+                return null;
+            }
 
             if (item.ImageTags == null || !item.ImageTags.TryGetValue("Primary", out var tag))
             {
@@ -109,15 +125,12 @@ public class ItemImageConverter : IValueConverter
             var maxWidth = parameter is string w && int.TryParse(w, out var p) ? p : 400;
             var imagePath = api.GetImageUrl(item.Id, "Primary", maxWidth, tag: tag);
             var fullUrl = $"{api.ServerUrl}{imagePath}";
-
-            // Return string URL — UWP Image control handles loading natively.
-            // Avoids BitmapImage threading/caching/memory issues on Xbox.
             App.Log($"[Image] Loading: {fullUrl}");
             return fullUrl;
         }
         catch (Exception ex)
         {
-            App.LogWarn($"[Image] Converter failed: {ex.Message}");
+            App.LogWarn($"[Image] Converter crashed: {ex.GetType().Name}: {ex.Message}");
             return null;
         }
     }

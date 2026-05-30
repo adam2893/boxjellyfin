@@ -62,6 +62,9 @@ public class HomeViewModel : ObservableObject
             var viewsTask = _api.GetViewsAsync();
             await Task.WhenAll(resumeTask, nextUpTask, viewsTask);
 
+            App.Log($"[Home] Resume items: {resumeTask.Result.Items.Count}");
+            App.Log($"[Home] NextUp items: {nextUpTask.Result.Items.Count}");
+
             ContinueWatching.Clear();
             foreach (var item in resumeTask.Result.Items) ContinueWatching.Add(item);
             HasContinueWatching = ContinueWatching.Count > 0;
@@ -95,6 +98,9 @@ public class HomeViewModel : ObservableObject
                 ? _api.GetItemsAsync(showLib.Id, sortBy: "DateCreated", sortOrder: "Descending", limit: 12, includeItemTypes: "Series")
                 : Task.FromResult(new ItemsResult());
             await Task.WhenAll(movieTask, showTask);
+
+            App.Log($"[Home] Latest movies: {movieTask.Result.Items.Count}");
+            App.Log($"[Home] Latest shows: {showTask.Result.Items.Count}");
 
             foreach (var item in movieTask.Result.Items) LatestMovies.Add(item);
             foreach (var item in showTask.Result.Items) LatestShows.Add(item);

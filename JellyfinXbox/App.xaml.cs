@@ -117,7 +117,7 @@ public partial class App : Application
         {
             _logPath = Path.Combine(ApplicationData.Current.LocalFolder.Path, "jellyfinxbox.log");
             var ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            File.WriteAllText(_logPath, $"[{ts}] JellyfinXbox v1.0.6.1 started{Environment.NewLine}");
+            File.WriteAllText(_logPath, $"[{ts}] JellyfinXbox v1.0.6.6 started{Environment.NewLine}");
         }
         catch { _logPath = null; }
     }
