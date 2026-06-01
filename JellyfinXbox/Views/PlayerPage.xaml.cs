@@ -32,16 +32,18 @@ public sealed partial class PlayerPage : Page
         _positionTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
         _positionTimer.Tick += (s, e) =>
         {
-            if (MediaElement.NaturalDuration.HasTimeSpan)
+            if (ViewModel.Duration.TotalSeconds < 0.5) return;
+            var realPos = MediaElement.Position.TotalSeconds;
+            var sliderDelta = Math.Abs(SeekSlider.Value - realPos);
+
+            // Only update slider if we're not being dragged (delta < 1s = timer update, > 1s = user dragging)
+            if (sliderDelta < 1.5)
             {
-                ViewModel.Position = MediaElement.Position;
-                ViewModel.PositionDisplay = FormatTime(MediaElement.Position);
-                if (ViewModel.Duration.TotalSeconds < 1)
-                {
-                    ViewModel.Duration = MediaElement.NaturalDuration.TimeSpan;
-                    ViewModel.DurationDisplay = FormatTime(MediaElement.NaturalDuration.TimeSpan);
-                }
+                SeekSlider.Maximum = ViewModel.Duration.TotalSeconds;
+                SeekSlider.Value = realPos;
             }
+            ViewModel.Position = MediaElement.Position;
+            ViewModel.PositionDisplay = FormatTime(MediaElement.Position);
         };
 
         Loaded += OnLoaded;
@@ -83,6 +85,10 @@ public sealed partial class PlayerPage : Page
                 restoreTimer.Start();
             };
 
+            // Seek bar: seek only on thumb release, not during drag
+            SeekSlider.ManipulationCompleted += (s, args) => DoSeek();
+            SeekSlider.PointerCaptureLost += (s, args) => DoSeek();
+
             // Prepare URL and metadata
             var url = await ViewModel.PrepareUrlAsync(_pendingItemId);
             if (url == null)
@@ -107,9 +113,8 @@ public sealed partial class PlayerPage : Page
 
     private void Media_MediaOpened(object sender, RoutedEventArgs e)
     {
-        App.Log($"[Player] >>> MediaOpened: {MediaElement.NaturalVideoWidth}x{MediaElement.NaturalVideoHeight}, dur={MediaElement.NaturalDuration.TimeSpan} <<<");
-        ViewModel.Duration = MediaElement.NaturalDuration.TimeSpan;
-        ViewModel.DurationDisplay = FormatTime(ViewModel.Duration);
+        App.Log($"[Player] >>> MediaOpened: {MediaElement.NaturalVideoWidth}x{MediaElement.NaturalVideoHeight} <<<");
+        // Duration is already set from API (streaming sources don't report it via MediaElement)
         ViewModel.HasVideo = MediaElement.NaturalVideoHeight > 0;
         ViewModel.IsBuffering = false;
     }
@@ -138,6 +143,21 @@ public sealed partial class PlayerPage : Page
     {
         App.Log("[Player] >>> MediaEnded <<<");
         ViewModel.IsPlaying = false;
+    }
+
+    private DateTime _lastSeek;
+
+    private void DoSeek()
+    {
+        // Debounce: both ManipulationCompleted and PointerCaptureLost can fire
+        if ((DateTime.UtcNow - _lastSeek).TotalMilliseconds < 300) return;
+        _lastSeek = DateTime.UtcNow;
+
+        var newPos = TimeSpan.FromSeconds(SeekSlider.Value);
+        App.Log($"[Player] Seek to {newPos}");
+        MediaElement.Position = newPos;
+        ViewModel.Position = newPos;
+        ViewModel.PositionDisplay = FormatTime(newPos);
     }
 
     // ═════ Transport Controls ═════

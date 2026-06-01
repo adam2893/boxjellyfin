@@ -123,11 +123,10 @@
                            FontSize="14" Foreground="#FFFFFFAA"
                            Visibility="{x:Bind ViewModel.Subtitle, Mode=OneWay, Converter={StaticResource NullToVisibilityConverter}}" />
 
-                <!-- Seek bar -->
+                <!-- Seek bar — updated from code, not binding (avoids snap-back on drag) -->
                 <Slider x:Name="SeekSlider"
                         MinWidth="600"
-                        Value="{x:Bind ViewModel.Position.TotalSeconds, Mode=OneWay}"
-                        Maximum="{x:Bind ViewModel.Duration.TotalSeconds, Mode=OneWay}"
+                        Maximum="100"
                         ThumbToolTipValueConverter="{StaticResource TimeSpanConverter}"
                         Foreground="{StaticResource AccentBrush}" />
 

@@ -67,7 +67,7 @@ public class JellyfinApiClient : IJellyfinClient
     // X-Emby-Authorization header values
     private const string ClientName = "BoxJellyfin";
     private const string DeviceName = "Xbox";
-    private const string AppVersion = "1.0.6.25";
+    private const string AppVersion = "1.0.6.29";
     private static readonly string DeviceId = Guid.NewGuid().ToString("N");
 
     public JellyfinApiClient(HttpClient http)
@@ -492,15 +492,7 @@ public class JellyfinApiClient : IJellyfinClient
         int? audioIndex = null, int? subtitleIndex = null)
     {
         var baseUrl = ServerUrl;
-        var url = $"/Videos/{itemId}/stream?static=true&MediaSourceId={source.Id}&ApiKey={AccessToken}";
-
-        if (!source.SupportsDirectPlay && !string.IsNullOrEmpty(source.TranscodingUrl))
-        {
-            url = source.TranscodingUrl;
-            if (audioIndex.HasValue) url += $"&AudioStreamIndex={audioIndex.Value}";
-            if (subtitleIndex.HasValue) url += $"&SubtitleStreamIndex={subtitleIndex.Value}";
-            return $"{baseUrl}{url}&ApiKey={AccessToken}";
-        }
+        var url = $"/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={AccessToken}";
 
         if (audioIndex.HasValue) url += $"&AudioStreamIndex={audioIndex.Value}";
         if (subtitleIndex.HasValue) url += $"&SubtitleStreamIndex={subtitleIndex.Value}";
