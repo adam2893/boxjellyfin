@@ -117,6 +117,7 @@ public sealed partial class PlayerPage : Page
         // Duration is already set from API (streaming sources don't report it via MediaElement)
         ViewModel.HasVideo = MediaElement.NaturalVideoHeight > 0;
         ViewModel.IsBuffering = false;
+        _isSeeking = false;
     }
 
     private void Media_CurrentStateChanged(object sender, RoutedEventArgs e)
@@ -146,18 +147,41 @@ public sealed partial class PlayerPage : Page
     }
 
     private DateTime _lastSeek;
+    private bool _isSeeking;
 
-    private void DoSeek()
+    private async void DoSeek()
     {
         // Debounce: both ManipulationCompleted and PointerCaptureLost can fire
         if ((DateTime.UtcNow - _lastSeek).TotalMilliseconds < 300) return;
+        if (_isSeeking) return;
         _lastSeek = DateTime.UtcNow;
 
         var newPos = TimeSpan.FromSeconds(SeekSlider.Value);
-        App.Log($"[Player] Seek to {newPos}");
-        MediaElement.Position = newPos;
-        ViewModel.Position = newPos;
-        ViewModel.PositionDisplay = FormatTime(newPos);
+        var wasPlaying = MediaElement.CurrentState == MediaElementState.Playing;
+        App.Log($"[Player] Seek to {newPos} (wasPlaying={wasPlaying})");
+
+        // MediaElement.Position setter is unreliable for HTTP streaming on UWP.
+        // Instead, restart the stream with StartTimeTicks in the URL.
+        var seekUrl = ViewModel.BuildSeekUrl(newPos);
+        if (seekUrl == null) return;
+
+        try
+        {
+            _isSeeking = true;
+            _positionTimer?.Stop();
+            ViewModel.IsBuffering = true;
+            MediaElement.Stop();
+            MediaElement.Source = seekUrl;
+            ViewModel.Position = newPos;
+            ViewModel.PositionDisplay = FormatTime(newPos);
+            if (wasPlaying)
+                MediaElement.Play();
+            App.Log($"[Player] Seek restart: Source set, wasPlaying={wasPlaying}");
+        }
+        catch (Exception ex)
+        {
+            App.LogWarn($"[Player] DoSeek EX: {ex.Message}");
+        }
     }
 
     // ═════ Transport Controls ═════

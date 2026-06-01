@@ -205,6 +205,28 @@ public class PlayerViewModel : ObservableObject, IDisposable
         return $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
     }
 
+    /// <summary>
+    /// Builds a seek URL by adding StartTimeTicks to restart playback at a given position.
+    /// MediaElement.Position setter is unreliable for HTTP streaming on UWP.
+    /// </summary>
+    public Uri? BuildSeekUrl(TimeSpan position)
+    {
+        if (_currentItemId == null || _currentMediaSource == null) return null;
+        try
+        {
+            var baseUrl = BuildMediaUrl(_currentItemId, _currentMediaSource);
+            var ticks = position.Ticks;
+            var url = $"{baseUrl}&StartTimeTicks={ticks}";
+            App.Log($"[Player] BuildSeekUrl: {url}");
+            return new Uri(url);
+        }
+        catch (Exception ex)
+        {
+            App.LogWarn($"[Player] BuildSeekUrl EX: {ex.Message}");
+            return null;
+        }
+    }
+
     private async Task ReportProgress()
     {
         if (_currentItemId != null && IsPlaying)
