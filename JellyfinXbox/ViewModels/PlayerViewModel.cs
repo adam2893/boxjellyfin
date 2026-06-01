@@ -22,6 +22,7 @@ public class PlayerViewModel : ObservableObject, IDisposable
     private string? _currentItemId;
     private MediaSourceInfo? _currentMediaSource;
     private Uri? _currentUri;
+    private TimeSpan? _resumePosition;
     private int _currentAudioIndex = -1;
     private int _currentSubIndex = -1;
 
@@ -197,9 +198,6 @@ public class PlayerViewModel : ObservableObject, IDisposable
         if (a != null) CurrentAudioCodec = a.Codec?.ToUpperInvariant() ?? "?";
     }
 
-    // Store video codec so seek/resume URLs can use same codec to force FFmpeg
-    private string? _videoCodec;
-
     private string BuildMediaUrl(string itemId, MediaSourceInfo source, long? resumeTicks = null)
     {
         var baseUrl = _api.ServerUrl;
@@ -209,9 +207,6 @@ public class PlayerViewModel : ObservableObject, IDisposable
         else
             url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
 
-        // Store video codec for seek URLs
-        _videoCodec = source.MediaStreams.FirstOrDefault(s => s.Type == "Video")?.Codec?.ToLowerInvariant();
-
         // UWP MediaElement doesn't support MOV container → force mp4
         var container = source.Container?.ToLowerInvariant() ?? "";
         if (container.StartsWith("mov,"))
@@ -220,40 +215,21 @@ public class PlayerViewModel : ObservableObject, IDisposable
             App.Log("[Player] MOV container → forcing mp4 remux");
         }
 
-        // Resume: use startTimeTicks + VideoCodec=<same> to force FFmpeg without re-encoding
-        // Without VideoCodec, Jellyfin direct-plays → startTimeTicks is silently ignored
+        // Store resume position for client-side seek after MediaOpened
         if (resumeTicks.HasValue && resumeTicks.Value > 0)
         {
-            var codecParam = !string.IsNullOrEmpty(_videoCodec) ? $"&VideoCodec={_videoCodec}" : "";
-            url += $"&startTimeTicks={resumeTicks.Value}{codecParam}";
-            App.Log($"[Player] Resume: {TimeSpan.FromTicks(resumeTicks.Value)} (videoCodec={_videoCodec ?? "none"})");
+            _resumePosition = TimeSpan.FromTicks(resumeTicks.Value);
+            App.Log($"[Player] Resume position stored: {_resumePosition}");
         }
 
         return url;
     }
 
     /// <summary>
-    /// Builds a seek URL. Uses VideoCodec=<same> to force FFmpeg pipeline without re-encoding,
-    /// so startTimeTicks (-ss) is respected by the server.
+    /// Stored resume position — PlayerPage applies this after MediaOpened via Pause→Position→Play.
+    /// No server-side startTimeTicks — direct-play ignores it and parameter hacks break playback.
     /// </summary>
-    public Uri? BuildSeekUrl(TimeSpan position)
-    {
-        if (_currentItemId == null || _currentMediaSource == null) return null;
-        try
-        {
-            var baseUrl = BuildMediaUrl(_currentItemId, _currentMediaSource);
-            var ticks = position.Ticks;
-            var codecParam = !string.IsNullOrEmpty(_videoCodec) ? $"&VideoCodec={_videoCodec}" : "";
-            var url = $"{baseUrl}&startTimeTicks={ticks}{codecParam}";
-            App.Log($"[Player] BuildSeekUrl: {url}");
-            return new Uri(url);
-        }
-        catch (Exception ex)
-        {
-            App.LogWarn($"[Player] BuildSeekUrl EX: {ex.Message}");
-            return null;
-        }
-    }
+    public TimeSpan? ResumePosition => _resumePosition;
 
     private async Task ReportProgress()
     {

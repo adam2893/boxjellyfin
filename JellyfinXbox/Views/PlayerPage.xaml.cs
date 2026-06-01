@@ -36,7 +36,6 @@ public sealed partial class PlayerPage : Page
             var realPos = MediaElement.Position.TotalSeconds;
             var sliderDelta = Math.Abs(SeekSlider.Value - realPos);
 
-            // Only update slider if we're not being dragged (delta < 1s = timer update, > 1s = user dragging)
             if (sliderDelta < 1.5)
             {
                 SeekSlider.Maximum = ViewModel.Duration.TotalSeconds;
@@ -62,21 +61,18 @@ public sealed partial class PlayerPage : Page
         App.Log($"[Player] OnLoaded — itemId={_pendingItemId}");
         try
         {
-            // Hook MediaElement events
             MediaElement.MediaOpened += Media_MediaOpened;
             MediaElement.MediaFailed += Media_MediaFailed;
             MediaElement.MediaEnded += Media_MediaEnded;
             MediaElement.CurrentStateChanged += Media_CurrentStateChanged;
             App.Log("[Player] MediaElement events hooked");
 
-            // Hook track changes — switch URI when audio/subtitle tracks change
             ViewModel.TrackUriChanged += (newUri) =>
             {
                 var pos = MediaElement.Position;
                 App.Log($"[Player] Track switch: {newUri}");
                 MediaElement.Source = newUri;
-                // Restore position after brief delay
-                var restoreTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+                var restoreTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
                 restoreTimer.Tick += (s2, e2) =>
                 {
                     restoreTimer.Stop();
@@ -85,11 +81,10 @@ public sealed partial class PlayerPage : Page
                 restoreTimer.Start();
             };
 
-            // Seek bar: seek only on thumb release, not during drag
+            // Seek slider: just store the drag, don't seek until release
             SeekSlider.ManipulationCompleted += (s, args) => DoSeek();
             SeekSlider.PointerCaptureLost += (s, args) => DoSeek();
 
-            // Prepare URL and metadata
             var url = await ViewModel.PrepareUrlAsync(_pendingItemId);
             if (url == null)
             {
@@ -117,14 +112,30 @@ public sealed partial class PlayerPage : Page
         ViewModel.HasVideo = MediaElement.NaturalVideoHeight > 0;
         ViewModel.IsBuffering = false;
 
-        if (_isSeeking)
+        // Apply resume position client-side (no server startTimeTicks — direct-play ignores it)
+        if (ViewModel.ResumePosition.HasValue && ViewModel.ResumePosition.Value.TotalSeconds > 1)
         {
-            _isSeeking = false;
-            if (_resumeAfterSeek)
+            var resumePos = ViewModel.ResumePosition.Value;
+            App.Log($"[Player] Applying resume position: {resumePos}");
+            // Delay to let the stream settle, then seek
+            var resumeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
+            resumeTimer.Tick += (s2, e2) =>
             {
-                App.Log("[Player] Seek complete, resuming playback");
-                MediaElement.Play();
-            }
+                resumeTimer.Stop();
+                try
+                {
+                    MediaElement.Pause();
+                    MediaElement.Position = resumePos;
+                    ViewModel.Position = resumePos;
+                    ViewModel.PositionDisplay = FormatTime(resumePos);
+                    App.Log($"[Player] Resume seek complete: pos={MediaElement.Position}");
+                }
+                catch (Exception ex)
+                {
+                    App.LogWarn($"[Player] Resume seek EX: {ex.Message}");
+                }
+            };
+            resumeTimer.Start();
         }
     }
 
@@ -137,7 +148,7 @@ public sealed partial class PlayerPage : Page
 
         if (MediaElement.CurrentState == MediaElementState.Playing)
             _positionTimer?.Start();
-        else
+        else if (MediaElement.CurrentState != MediaElementState.Buffering)
             _positionTimer?.Stop();
     }
 
@@ -154,40 +165,33 @@ public sealed partial class PlayerPage : Page
         ViewModel.IsPlaying = false;
     }
 
+    // ═════ Seek (Pause → Position → Play — no URL restart) ═════
+
     private DateTime _lastSeek;
-    private bool _isSeeking;
-    private bool _resumeAfterSeek;
 
     private void DoSeek()
     {
-        if ((DateTime.UtcNow - _lastSeek).TotalMilliseconds < 300) return;
-        if (_isSeeking) return;
+        if ((DateTime.UtcNow - _lastSeek).TotalMilliseconds < 500) return;
         _lastSeek = DateTime.UtcNow;
 
         var newPos = TimeSpan.FromSeconds(SeekSlider.Value);
-        _resumeAfterSeek = MediaElement.CurrentState == MediaElementState.Playing;
-        App.Log($"[Player] Seek to {newPos} (resumeAfter={_resumeAfterSeek})");
-
-        var seekUrl = ViewModel.BuildSeekUrl(newPos);
-        if (seekUrl == null) return;
+        var wasPlaying = MediaElement.CurrentState == MediaElementState.Playing;
+        App.Log($"[Player] Seek: Pause→Position={newPos}→Play (wasPlaying={wasPlaying})");
 
         try
         {
-            _isSeeking = true;
-            _positionTimer?.Stop();
-            ViewModel.IsBuffering = true;
+            MediaElement.Pause();
+            MediaElement.Position = newPos;
             ViewModel.Position = newPos;
             ViewModel.PositionDisplay = FormatTime(newPos);
-            MediaElement.Stop();
-            MediaElement.Source = seekUrl;
-            // Don't call Play() here — MediaElement hasn't loaded the new source yet.
-            // Media_MediaOpened will resume playback if _resumeAfterSeek is true.
-            App.Log($"[Player] Seek restart: Source set, waiting for MediaOpened...");
+            App.Log($"[Player] After seek set: pos={MediaElement.Position}");
+
+            if (wasPlaying)
+                MediaElement.Play();
         }
         catch (Exception ex)
         {
             App.LogWarn($"[Player] DoSeek EX: {ex.Message}");
-            _isSeeking = false;
         }
     }
 
@@ -201,14 +205,13 @@ public sealed partial class PlayerPage : Page
 
     private void PlayPause_Click(object sender, RoutedEventArgs e)
     {
-        App.Log($"[Player] PlayPause: current={MediaElement.CurrentState}");
-        if (MediaElement.CurrentState == MediaElementState.Playing ||
-            MediaElement.CurrentState == MediaElementState.Buffering)
+        var state = MediaElement.CurrentState;
+        App.Log($"[Player] PlayPause: current={state}");
+        if (state == MediaElementState.Playing || state == MediaElementState.Buffering)
         {
             MediaElement.Pause();
         }
-        else if (MediaElement.CurrentState == MediaElementState.Paused ||
-                 MediaElement.CurrentState == MediaElementState.Stopped)
+        else
         {
             App.Log("[Player] Calling Play()...");
             MediaElement.Play();
@@ -219,22 +222,22 @@ public sealed partial class PlayerPage : Page
 
     private void SeekForward_Click(object sender, RoutedEventArgs e)
     {
-        MediaElement.Position += TimeSpan.FromSeconds(10);
+        try { MediaElement.Position += TimeSpan.FromSeconds(10); } catch { }
         ShowTransport();
     }
     private void SeekBack_Click(object sender, RoutedEventArgs e)
     {
-        MediaElement.Position -= TimeSpan.FromSeconds(10);
+        try { MediaElement.Position -= TimeSpan.FromSeconds(10); } catch { }
         ShowTransport();
     }
     private void Rewind_Click(object sender, RoutedEventArgs e)
     {
-        MediaElement.Position -= TimeSpan.FromSeconds(20);
+        try { MediaElement.Position -= TimeSpan.FromSeconds(20); } catch { }
         ShowTransport();
     }
     private void Forward_Click(object sender, RoutedEventArgs e)
     {
-        MediaElement.Position += TimeSpan.FromSeconds(20);
+        try { MediaElement.Position += TimeSpan.FromSeconds(20); } catch { }
         ShowTransport();
     }
     private void Back_Click(object sender, RoutedEventArgs e) => ViewModel.StopCommand.Execute(null);
@@ -245,12 +248,10 @@ public sealed partial class PlayerPage : Page
     {
         ViewModel.TrackSelection.ToggleVisibilityCommand.Execute(null);
     }
-
     private void CloseTrackPanel_Click(object sender, RoutedEventArgs e)
     {
         ViewModel.TrackSelection.HideCommand.Execute(null);
     }
-
     private void AudioListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (e.AddedItems.FirstOrDefault() is MediaStream track)
@@ -259,7 +260,6 @@ public sealed partial class PlayerPage : Page
             ShowTransport();
         }
     }
-
     private void SubtitleListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (e.AddedItems.FirstOrDefault() is MediaStream track)
