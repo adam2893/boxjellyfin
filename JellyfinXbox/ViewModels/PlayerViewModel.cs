@@ -1,18 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Windows.System;
-using Windows.UI.Xaml;
-using Windows.Media.Core;
-using Windows.Media.Playback;
 using JellyfinClient.Models;
 using JellyfinClient.Services;
 using JellyfinXbox.Services;
-using System.Linq;
 
 namespace JellyfinXbox.ViewModels;
 
@@ -23,10 +18,15 @@ public class PlayerViewModel : ObservableObject, IDisposable
     private readonly TrackSelectionViewModel _trackSelection;
     private readonly DispatcherQueue _dispatcher;
 
-    private MediaPlayer? _player;
     private Timer? _reportTimer;
     private string? _currentItemId;
     private MediaSourceInfo? _currentMediaSource;
+    private Uri? _currentUri;
+    private int _currentAudioIndex = -1;
+    private int _currentSubIndex = -1;
+
+    // Fired when tracks change — PlayerPage should set MediaElement.Source to new URI
+    public event Action<Uri>? TrackUriChanged;
 
     private bool _isPlaying;
     private bool _isBuffering;
@@ -63,7 +63,6 @@ public class PlayerViewModel : ObservableObject, IDisposable
     public bool IsDirectPlay { get => _isDirectPlay; set => SetProperty(ref _isDirectPlay, value); }
 
     public TrackSelectionViewModel TrackSelection => _trackSelection;
-    public MediaPlayer? Player => _player;
 
     public ICommand PlayCommand { get; }
     public ICommand PauseCommand { get; }
@@ -81,105 +80,121 @@ public class PlayerViewModel : ObservableObject, IDisposable
         _trackSelection = new TrackSelectionViewModel(api);
         _trackSelection.OnTracksChanged += OnTracksChanged;
 
-        PlayCommand = new RelayCommand(Play);
-        PauseCommand = new RelayCommand(Pause);
-        TogglePlayPauseCommand = new RelayCommand(TogglePlayPause);
-        SeekForwardCommand = new RelayCommand(SeekForward);
-        SeekBackwardCommand = new RelayCommand(SeekBackward);
-        SeekToCommand = new RelayCommand<TimeSpan>(SeekTo);
+        PlayCommand = new RelayCommand(() => { });
+        PauseCommand = new RelayCommand(() => { });
+        TogglePlayPauseCommand = new RelayCommand(() => { });
+        SeekForwardCommand = new RelayCommand(() => { });
+        SeekBackwardCommand = new RelayCommand(() => { });
+        SeekToCommand = new RelayCommand<TimeSpan>(_ => { });
         StopCommand = new RelayCommand(Stop);
     }
 
-    public async Task LoadAsync(string itemId)
+    public async Task<Uri?> PrepareUrlAsync(string itemId)
     {
-        var item = await _api.GetItemAsync(itemId);
-        if (item == null) return;
-
-        _currentItemId = itemId;
-        Title = item.Name;
-
-        if (item.Type == "Episode")
+        App.Log($"[Player] ===== PrepareUrl: itemId={itemId} =====");
+        try
         {
-            Subtitle = !string.IsNullOrEmpty(item.SeriesName)
-                ? $"S{item.ParentIndexNumber:D2}E{item.IndexNumber:D2} — {item.SeriesName}"
-                : $"S{item.ParentIndexNumber:D2}E{item.IndexNumber:D2}";
+            var item = await _api.GetItemAsync(itemId);
+            if (item == null) { App.LogWarn("[Player] Item null"); return null; }
+            App.Log($"[Player] Item: {item.Name}, Type={item.Type}, RunTimeTicks={item.RunTimeTicks}");
+
+            _currentItemId = itemId;
+            Title = item.Name;
+            Subtitle = item.Type == "Episode"
+                ? (!string.IsNullOrEmpty(item.SeriesName)
+                    ? $"S{item.ParentIndexNumber:D2}E{item.IndexNumber:D2} — {item.SeriesName}"
+                    : $"S{item.ParentIndexNumber:D2}E{item.IndexNumber:D2}")
+                : item.ProductionYear?.ToString() ?? "";
+
+            // Set duration from API (not from MediaElement — streaming sources don't report it)
+            if (item.RunTimeTicks.HasValue && item.RunTimeTicks.Value > 0)
+            {
+                Duration = TimeSpan.FromTicks(item.RunTimeTicks.Value);
+                DurationDisplay = FormatTime(Duration);
+                App.Log($"[Player] Duration from API: {DurationDisplay}");
+            }
+
+            var backdropId = item.BackdropImageTags.Count > 0 ? item.Id : item.ParentBackdropItemId;
+            if (!string.IsNullOrEmpty(backdropId))
+                BackdropUrl = $"{_api.ServerUrl}{_api.GetBackdropUrl(backdropId, maxWidth: 1920, tag: item.BackdropImageTags.FirstOrDefault())}";
+
+            var playbackInfo = await _api.GetPlaybackInfoAsync(itemId, _api.Settings.MaxStreamingBitrate);
+            if (playbackInfo?.MediaSources == null || playbackInfo.MediaSources.Count == 0)
+            {
+                App.LogWarn("[Player] No sources");
+                return null;
+            }
+
+            for (int i = 0; i < playbackInfo.MediaSources.Count; i++)
+            {
+                var ms = playbackInfo.MediaSources[i];
+                var v = ms.MediaStreams.FirstOrDefault(s => s.Type == "Video");
+                var a = ms.MediaStreams.FirstOrDefault(s => s.Type == "Audio");
+                var subs = ms.MediaStreams.Count(s => s.Type == "Subtitle");
+                App.Log($"[Player] Src[{i}]: {ms.Container}, dp={ms.SupportsDirectPlay}, vc={v?.Codec}, ac={a?.Codec}, {v?.Width}x{v?.Height}, subs={subs}");
+            }
+
+            var source = SelectMediaSource(playbackInfo.MediaSources);
+            _currentMediaSource = source;
+
+            // Load audio/subtitle tracks
+            _trackSelection.LoadTracks(source);
+            App.Log($"[Player] Tracks: audio={_trackSelection.AudioTracks.Count}, subtitle={_trackSelection.SubtitleTracks.Count}");
+
+            var url = BuildMediaUrl(itemId, source);
+            App.Log($"[Player] URL: {url}");
+            _currentUri = new Uri(url);
+
+            _ = _api.ReportPlaybackStartAsync(itemId);
+            _reportTimer = new Timer(async _ => await ReportProgress(), null, 5000, 10000);
+            App.Log("[Player] ===== PrepareUrl COMPLETE =====");
+            return _currentUri;
         }
-        else if (item.ProductionYear.HasValue)
+        catch (Exception ex)
         {
-            Subtitle = item.ProductionYear.Value.ToString();
+            App.LogWarn($"[Player] PrepareUrl EX: {ex.GetType().Name}: {ex.Message}");
+            return null;
         }
+    }
 
-        var backdropId = item.BackdropImageTags.Count > 0 ? item.Id : item.ParentBackdropItemId;
-        if (!string.IsNullOrEmpty(backdropId))
-            BackdropUrl = $"{_api.ServerUrl}{_api.GetBackdropUrl(backdropId, maxWidth: 1920, tag: item.BackdropImageTags.FirstOrDefault())}";
+    private void OnTracksChanged(MediaStream? audio, MediaStream? subtitle)
+    {
+        if (_currentMediaSource == null || _currentItemId == null) return;
 
-        var maxBitrate = _api.Settings.MaxStreamingBitrate;
-        IsBuffering = true;
-        var playbackInfo = await _api.GetPlaybackInfoAsync(itemId, maxBitrate);
-
-        if (playbackInfo?.MediaSources == null || playbackInfo.MediaSources.Count == 0)
-        {
-            IsBuffering = false;
-            return;
-        }
-
-        var source = SelectMediaSource(playbackInfo.MediaSources);
-        _currentMediaSource = source;
-
-        var mediaUrl = BuildMediaUrl(itemId, source);
-        Debug.WriteLine($"[Player] Playing: {mediaUrl}");
-
-        InitializePlayer();
-        _player!.Source = MediaSource.CreateFromUri(new Uri(mediaUrl));
-
-        _trackSelection.LoadTracks(source);
-        _ = _api.ReportPlaybackStartAsync(itemId);
-
-        _reportTimer = new Timer(async _ => await ReportProgress(), null, 5000, 10000);
+        var newUrl = _api.BuildTranscodeUrlWithTracks(_currentItemId, _currentMediaSource,
+            audio?.Index, subtitle?.Index);
+        App.Log($"[Player] Track switch URL: {newUrl}");
+        _currentUri = new Uri(newUrl);
+        TrackUriChanged?.Invoke(_currentUri);
     }
 
     private MediaSourceInfo SelectMediaSource(List<MediaSourceInfo> sources)
     {
-        var directPlay = sources
-            .Where(s => s.SupportsDirectPlay)
-            .OrderByDescending(s =>
-            {
-                var video = s.MediaStreams.FirstOrDefault(ms => ms.Type == "Video");
-                return video?.Codec switch
-                {
-                    "av1" => 3, "hevc" or "h265" => 2, "h264" or "avc" => 1, _ => 0
-                };
-            })
-            .FirstOrDefault();
-
-        if (directPlay != null)
+        var dp = sources.Where(s => s.SupportsDirectPlay).FirstOrDefault();
+        if (dp != null)
         {
             IsDirectPlay = true;
-            UpdateCodecInfo(directPlay);
-            return directPlay;
+            UpdateCodecInfo(dp);
+            return dp;
         }
-
-        var transcode = sources.OrderByDescending(s => s.SupportsTranscoding).FirstOrDefault() ?? sources.First();
+        var fb = sources[0];
         IsDirectPlay = false;
-        UpdateCodecInfo(transcode);
-        return transcode;
+        UpdateCodecInfo(fb);
+        return fb;
     }
 
     private void UpdateCodecInfo(MediaSourceInfo source)
     {
-        var video = source.MediaStreams.FirstOrDefault(ms => ms.Type == "Video");
-        var audio = source.MediaStreams.FirstOrDefault(ms => ms.Type == "Audio");
-
-        if (video != null)
+        var v = source.MediaStreams.FirstOrDefault(ms => ms.Type == "Video");
+        var a = source.MediaStreams.FirstOrDefault(ms => ms.Type == "Audio");
+        if (v != null)
         {
-            CurrentVideoCodec = video.Codec?.ToUpperInvariant() ?? "Unknown";
-            if (video.Width.HasValue && video.Height.HasValue)
-                CurrentResolution = $"{video.Width.Value}x{video.Height.Value}";
-            var vr = video.VideoRangeType ?? video.VideoRange;
-            IsHdr = !string.IsNullOrEmpty(vr) && vr.Contains("HDR", StringComparison.OrdinalIgnoreCase);
+            CurrentVideoCodec = v.Codec?.ToUpperInvariant() ?? "?";
+            if (v.Width.HasValue && v.Height.HasValue)
+                CurrentResolution = $"{v.Width.Value}x{v.Height.Value}";
+            IsHdr = (v.VideoRangeType ?? v.VideoRange ?? "").Contains("HDR", StringComparison.OrdinalIgnoreCase);
         }
-        if (audio != null)
-            CurrentAudioCodec = audio.Codec?.ToUpperInvariant() ?? "Unknown";
+        if (a != null) CurrentAudioCodec = a.Codec?.ToUpperInvariant() ?? "?";
     }
 
     private string BuildMediaUrl(string itemId, MediaSourceInfo source)
@@ -187,108 +202,7 @@ public class PlayerViewModel : ObservableObject, IDisposable
         var baseUrl = _api.ServerUrl;
         if (source.SupportsDirectPlay && !string.IsNullOrEmpty(source.DirectStreamUrl))
             return $"{baseUrl}{source.DirectStreamUrl}&ApiKey={_api.AccessToken}";
-        if (source.SupportsDirectStream)
-            return $"{baseUrl}/Videos/{itemId}/stream?static=true&MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
-        if (!string.IsNullOrEmpty(source.TranscodingUrl))
-            return $"{baseUrl}{source.TranscodingUrl}&ApiKey={_api.AccessToken}";
-        return $"{baseUrl}/Videos/{itemId}/stream?static=true&MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
-    }
-
-    private void OnTracksChanged(MediaStream? audio, MediaStream? subtitle)
-    {
-        if (_player == null || _currentMediaSource == null || _currentItemId == null) return;
-        var itemId = _currentItemId;
-        var source = _currentMediaSource;
-        var currentPosition = _player.PlaybackSession.Position;
-
-        var newUrl = _api.BuildTranscodeUrlWithTracks(itemId, source,
-            audio?.Index, subtitle?.Index);
-        Debug.WriteLine($"[Player] Switching tracks");
-
-        _player.Source = MediaSource.CreateFromUri(new Uri(newUrl));
-        var seekTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        seekTimer.Tick += (s, e) =>
-        {
-            seekTimer.Stop();
-            try { _player.PlaybackSession.Position = currentPosition; }
-            catch { }
-        };
-        seekTimer.Start();
-    }
-
-    private void InitializePlayer()
-    {
-        if (_player != null)
-        {
-            _player.MediaOpened -= Player_MediaOpened;
-            _player.PlaybackSession.PlaybackStateChanged -= Playback_PlaybackStateChanged;
-            _player.PlaybackSession.PositionChanged -= Playback_PositionChanged;
-            _player.MediaEnded -= Player_MediaEnded;
-            _player.MediaFailed -= Player_MediaFailed;
-            _player.Dispose();
-        }
-
-        _player = new MediaPlayer();
-        _player.AutoPlay = true;
-        _player.AudioCategory = MediaPlayerAudioCategory.Movie;
-        _player.CommandManager.IsEnabled = false;
-
-        _player.MediaOpened += Player_MediaOpened;
-        _player.PlaybackSession.PlaybackStateChanged += Playback_PlaybackStateChanged;
-        _player.PlaybackSession.PositionChanged += Playback_PositionChanged;
-        _player.MediaEnded += Player_MediaEnded;
-        _player.MediaFailed += Player_MediaFailed;
-    }
-
-    private void Player_MediaOpened(MediaPlayer sender, object args)
-    {
-        _dispatcher.TryEnqueue(() =>
-        {
-            Duration = sender.PlaybackSession.NaturalDuration;
-            DurationDisplay = FormatTime(Duration);
-            HasVideo = sender.PlaybackSession.NaturalVideoHeight > 0;
-            IsBuffering = false;
-        });
-    }
-
-    private void Playback_PlaybackStateChanged(MediaPlaybackSession sender, object args)
-    {
-        _dispatcher.TryEnqueue(() =>
-        {
-            IsPlaying = sender.PlaybackState == MediaPlaybackState.Playing;
-            IsBuffering = sender.PlaybackState == MediaPlaybackState.Buffering;
-        });
-    }
-
-    private void Playback_PositionChanged(MediaPlaybackSession sender, object args)
-    {
-        _dispatcher.TryEnqueue(() =>
-        {
-            Position = sender.Position;
-            PositionDisplay = FormatTime(Position);
-            BufferingProgress = sender.BufferingProgress * 100;
-        });
-    }
-
-    private async void Player_MediaEnded(MediaPlayer sender, object args)
-    {
-        Debug.WriteLine("[Player] Media ended.");
-        IsPlaying = false;
-        if (_currentItemId != null)
-        {
-            await _api.ReportPlaybackStoppedAsync(_currentItemId, Duration.Ticks);
-            await _api.MarkPlayedAsync(_currentItemId);
-        }
-        _reportTimer?.Dispose();
-    }
-
-    private async void Player_MediaFailed(MediaPlayer sender, MediaPlayerFailedEventArgs args)
-    {
-        Debug.WriteLine($"[Player] Failed: {args.Error}, Extended: {args.ExtendedErrorCode}");
-        IsBuffering = false;
-        IsPlaying = false;
-        if (_currentItemId != null)
-            await _api.ReportPlaybackStoppedAsync(_currentItemId, Position.Ticks);
+        return $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
     }
 
     private async Task ReportProgress()
@@ -297,32 +211,10 @@ public class PlayerViewModel : ObservableObject, IDisposable
             await _api.ReportPlaybackProgressAsync(_currentItemId, Position.Ticks, !IsPlaying);
     }
 
-    private void Play() => _player?.Play();
-    private void Pause() => _player?.Pause();
-
-    private void TogglePlayPause()
-    {
-        if (_player == null) return;
-        if (_player.PlaybackSession.PlaybackState == MediaPlaybackState.Playing)
-            _player.Pause();
-        else
-            _player.Play();
-    }
-
-    private void SeekForward() { if (_player != null) _player.PlaybackSession.Position += TimeSpan.FromSeconds(10); }
-    private void SeekBackward() { if (_player != null) _player.PlaybackSession.Position -= TimeSpan.FromSeconds(10); }
-
-    private void SeekTo(TimeSpan position)
-    {
-        if (_player != null)
-            _player.PlaybackSession.Position = position;
-    }
-
     private void Stop()
     {
         if (_currentItemId != null)
             _ = _api.ReportPlaybackStoppedAsync(_currentItemId, Position.Ticks);
-        _player?.Pause();
         _reportTimer?.Dispose();
         _nav.GoBack();
     }
@@ -338,6 +230,5 @@ public class PlayerViewModel : ObservableObject, IDisposable
         _reportTimer?.Dispose();
         if (_currentItemId != null && IsPlaying)
             _ = _api.ReportPlaybackStoppedAsync(_currentItemId, Position.Ticks);
-        _player?.Dispose();
     }
 }

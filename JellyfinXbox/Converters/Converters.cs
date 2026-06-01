@@ -89,13 +89,19 @@ public class TicksToTimeSpanConverter : IValueConverter
 
 public class ItemImageConverter : IValueConverter
 {
+    public ItemImageConverter()
+    {
+        App.Log("[Image] Converter instance created");
+    }
+
     public object Convert(object value, Type targetType, object parameter, string language)
     {
+        App.Log($"[Image] Convert called — value type: {value?.GetType().Name ?? "null"}, target: {targetType.Name}");
         try
         {
             if (value is not BaseItemDto item)
             {
-                App.Log($"[Image] Convert called with non-BaseItemDto: {value?.GetType().Name ?? "null"}");
+                App.Log($"[Image] Not a BaseItemDto: {value?.GetType().Name ?? "null"}");
                 return null;
             }
             if (string.IsNullOrEmpty(item.Id))
@@ -126,7 +132,11 @@ public class ItemImageConverter : IValueConverter
             var imagePath = api.GetImageUrl(item.Id, "Primary", maxWidth, tag: tag);
             var fullUrl = $"{api.ServerUrl}{imagePath}";
             App.Log($"[Image] Loading: {fullUrl}");
-            return fullUrl;
+
+            var bitmap = new BitmapImage { DecodePixelWidth = maxWidth };
+            bitmap.ImageFailed += (s, e) => App.LogWarn($"[Image] Download failed: {e.ErrorMessage}");
+            bitmap.UriSource = new Uri(fullUrl);
+            return bitmap;
         }
         catch (Exception ex)
         {

@@ -1,3 +1,4 @@
+using System;
 using Windows.Storage;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
@@ -44,12 +45,17 @@ public sealed partial class ShellPage : Page
         var api = App.GetService<JellyfinApiClient>();
 
         // Try restoring previous session (Wholphin-style)
+        App.Log("[Shell] Attempting session restore...");
         var restored = await TryRestoreSessionAsync(api);
 
         if (!api.IsAuthenticated)
+        {
+            App.Log("[Shell] No valid session — showing ConnectPage");
             _nav.NavigateTo(typeof(ConnectPage));
+        }
         else
         {
+            App.Log(restored ? "[Shell] Session restored from LocalSettings" : "[Shell] Existing session still valid");
             HighlightNav("home");
             _nav.NavigateTo(typeof(HomePage));
         }
@@ -81,23 +87,45 @@ public sealed partial class ShellPage : Page
             var savedToken = settings.Values[KeyAccessToken] as string;
 
             if (string.IsNullOrEmpty(savedUrl) || string.IsNullOrEmpty(savedToken))
+            {
+                App.Log("[Shell] Restore: no saved credentials in LocalSettings");
                 return false;
+            }
 
+            App.Log($"[Shell] Restore: found saved URL={savedUrl}, token={savedToken.Substring(0, Math.Min(8, savedToken.Length))}...");
             api.SetServerUrl(savedUrl);
             api.SetAccessToken(savedToken);
 
             if (!await api.ValidateTokenAsync())
             {
+                App.LogWarn("[Shell] Restore: saved token is invalid/expired");
                 ClearSession();
                 api.Logout();
                 return false;
             }
 
+            // Load current user — required for IsAuthenticated
+            try
+            {
+                var user = await api.GetCurrentUserAsync();
+                api.CurrentUser = user;
+                App.Log("[Shell] Restore: user loaded successfully");
+            }
+            catch (Exception ex)
+            {
+                App.LogWarn($"[Shell] Restore: failed to load user: {ex.Message}");
+                ClearSession();
+                api.Logout();
+                return false;
+            }
+
+            App.Log("[Shell] Restore: token validated and user loaded");
             api.RaiseAuthChanged();
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            App.LogWarn($"[Shell] Restore exception: {ex.GetType().Name}: {ex.Message}");
             ClearSession();
             return false;
         }

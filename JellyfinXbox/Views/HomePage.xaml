@@ -86,7 +86,7 @@
                                       CornerRadius="12"
                                       Background="{StaticResource SurfaceTertiaryBrush}">
                                     <Border CornerRadius="12">
-                                        <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=400}"
+                                        <Image Source="{Binding Converter={StaticResource ItemImageConverter}, ConverterParameter=400}"
                                                Stretch="UniformToFill" />
                                     </Border>
                                     <StackPanel VerticalAlignment="Bottom"
@@ -133,7 +133,7 @@
                                       CornerRadius="12"
                                       Background="{StaticResource SurfaceTertiaryBrush}">
                                     <Border CornerRadius="12">
-                                        <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=400}"
+                                        <Image Source="{Binding Converter={StaticResource ItemImageConverter}, ConverterParameter=400}"
                                                Stretch="UniformToFill" />
                                     </Border>
                                     <StackPanel VerticalAlignment="Bottom"
@@ -179,7 +179,7 @@
                                     <Border Width="160" Height="240"
                                             CornerRadius="12"
                                             Background="{StaticResource SurfaceTertiaryBrush}">
-                                        <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
+                                        <Image Source="{Binding Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
                                                Stretch="UniformToFill" />
                                     </Border>
                                     <TextBlock Text="{Binding Name}"
@@ -221,7 +221,7 @@
                                     <Border Width="160" Height="240"
                                             CornerRadius="12"
                                             Background="{StaticResource SurfaceTertiaryBrush}">
-                                        <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
+                                        <Image Source="{Binding Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
                                                Stretch="UniformToFill" />
                                     </Border>
                                     <TextBlock Text="{Binding Name}"
@@ -242,4 +242,5 @@
         </StackPanel>
     </ScrollViewer>
 </Page>
+
 

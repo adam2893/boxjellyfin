@@ -19,11 +19,13 @@ public sealed partial class MediaDetailPage : Page
         ViewModel = viewModel;
         InitializeComponent();
         Loaded += OnLoaded;
+        App.Log("[MediaDetailPage] Constructor — page created");
     }
 
     public void Initialize(string itemId)
     {
         _pendingItemId = itemId;
+        App.Log($"[MediaDetailPage] Initialize called with itemId={itemId}");
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)

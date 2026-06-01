@@ -40,8 +40,7 @@
                     <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
                             Width="240" Height="360"
                             CornerRadius="16"
-                            Background="{StaticResource SurfaceTertiaryBrush}"
-                            Shadow="{ThemeResource ThemeShadow}">
+                            Background="{StaticResource SurfaceTertiaryBrush}">
                         <Image x:Name="PosterImage" Stretch="UniformToFill" />
                     </Border>
 

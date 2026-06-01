@@ -7,8 +7,11 @@
         <!-- ═══════════════════════════════════════ -->
         <!--         MEDIA RENDERER                  -->
         <!-- ═══════════════════════════════════════ -->
-        <MediaPlayerElement x:Name="MediaPlayerElement"
-                            AutoPlay="True" />
+        <MediaElement x:Name="MediaElement"
+                     AutoPlay="False"
+                     AreTransportControlsEnabled="False"
+                     AudioCategory="Movie"
+                     RealTimePlayback="False" />
 
         <!-- ═══════════════════════════════════════ -->
         <!--          LOADING OVERLAY                -->

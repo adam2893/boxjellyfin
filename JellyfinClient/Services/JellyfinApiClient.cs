@@ -67,7 +67,7 @@ public class JellyfinApiClient : IJellyfinClient
     // X-Emby-Authorization header values
     private const string ClientName = "BoxJellyfin";
     private const string DeviceName = "Xbox";
-    private const string AppVersion = "1.0.6.6";
+    private const string AppVersion = "1.0.6.25";
     private static readonly string DeviceId = Guid.NewGuid().ToString("N");
 
     public JellyfinApiClient(HttpClient http)
@@ -148,6 +148,16 @@ public class JellyfinApiClient : IJellyfinClient
             return result ?? new();
         }
         catch { return new(); }
+    }
+
+    public async Task<User?> GetCurrentUserAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _http.GetFromJsonAsync<User>("/Users/Me", _jsonOpts, ct);
+            return result;
+        }
+        catch { return null; }
     }
 
     public async Task<(AuthenticationResult? result, string? error)> AuthenticateAsync(

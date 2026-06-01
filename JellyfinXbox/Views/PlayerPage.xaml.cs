@@ -1,9 +1,9 @@
 using System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Input;
-using Windows.Media.Playback;
 using System.Linq;
 using JellyfinClient.Models;
 using JellyfinXbox.ViewModels;
@@ -14,6 +14,7 @@ public sealed partial class PlayerPage : Page
 {
     public PlayerViewModel ViewModel { get; }
     private DispatcherTimer? _hideTimer;
+    private DispatcherTimer? _positionTimer;
     private string? _pendingItemId;
 
     public PlayerPage(PlayerViewModel viewModel)
@@ -28,6 +29,21 @@ public sealed partial class PlayerPage : Page
             _hideTimer.Stop();
         };
 
+        _positionTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _positionTimer.Tick += (s, e) =>
+        {
+            if (MediaElement.NaturalDuration.HasTimeSpan)
+            {
+                ViewModel.Position = MediaElement.Position;
+                ViewModel.PositionDisplay = FormatTime(MediaElement.Position);
+                if (ViewModel.Duration.TotalSeconds < 1)
+                {
+                    ViewModel.Duration = MediaElement.NaturalDuration.TimeSpan;
+                    ViewModel.DurationDisplay = FormatTime(MediaElement.NaturalDuration.TimeSpan);
+                }
+            }
+        };
+
         Loaded += OnLoaded;
     }
 
@@ -39,16 +55,92 @@ public sealed partial class PlayerPage : Page
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         Loaded -= OnLoaded;
-        if (_pendingItemId != null)
-        {
-            var player = ViewModel.Player;
-            if (player != null)
-                MediaPlayerElement.SetMediaPlayer(player);
+        if (_pendingItemId == null) return;
 
-            try { await ViewModel.LoadAsync(_pendingItemId); }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"Player load failed: {ex.Message}"); }
+        App.Log($"[Player] OnLoaded — itemId={_pendingItemId}");
+        try
+        {
+            // Hook MediaElement events
+            MediaElement.MediaOpened += Media_MediaOpened;
+            MediaElement.MediaFailed += Media_MediaFailed;
+            MediaElement.MediaEnded += Media_MediaEnded;
+            MediaElement.CurrentStateChanged += Media_CurrentStateChanged;
+            App.Log("[Player] MediaElement events hooked");
+
+            // Hook track changes — switch URI when audio/subtitle tracks change
+            ViewModel.TrackUriChanged += (newUri) =>
+            {
+                var pos = MediaElement.Position;
+                App.Log($"[Player] Track switch: {newUri}");
+                MediaElement.Source = newUri;
+                // Restore position after brief delay
+                var restoreTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+                restoreTimer.Tick += (s2, e2) =>
+                {
+                    restoreTimer.Stop();
+                    try { MediaElement.Position = pos; } catch { }
+                };
+                restoreTimer.Start();
+            };
+
+            // Prepare URL and metadata
+            var url = await ViewModel.PrepareUrlAsync(_pendingItemId);
+            if (url == null)
+            {
+                App.LogWarn("[Player] PrepareUrlAsync returned null");
+                return;
+            }
+
+            App.Log($"[Player] Setting Source: {url}");
+            MediaElement.Source = url;
+            ViewModel.IsBuffering = true;
+            App.Log("[Player] Source set, waiting for MediaOpened...");
+        }
+        catch (Exception ex)
+        {
+            App.LogWarn($"[Player] EX: {ex.GetType().Name}: {ex.Message}");
+            App.LogWarn($"[Player] Stack: {ex.StackTrace}");
         }
     }
+
+    // ═════ MediaElement Events ═════
+
+    private void Media_MediaOpened(object sender, RoutedEventArgs e)
+    {
+        App.Log($"[Player] >>> MediaOpened: {MediaElement.NaturalVideoWidth}x{MediaElement.NaturalVideoHeight}, dur={MediaElement.NaturalDuration.TimeSpan} <<<");
+        ViewModel.Duration = MediaElement.NaturalDuration.TimeSpan;
+        ViewModel.DurationDisplay = FormatTime(ViewModel.Duration);
+        ViewModel.HasVideo = MediaElement.NaturalVideoHeight > 0;
+        ViewModel.IsBuffering = false;
+    }
+
+    private void Media_CurrentStateChanged(object sender, RoutedEventArgs e)
+    {
+        App.Log($"[Player] >>> State: {MediaElement.CurrentState} <<<");
+        ViewModel.IsPlaying = MediaElement.CurrentState == MediaElementState.Playing;
+        ViewModel.IsBuffering = MediaElement.CurrentState == MediaElementState.Buffering;
+        PlayPauseIcon.Glyph = ViewModel.IsPlaying ? "\uE769" : "\uE768";
+
+        if (MediaElement.CurrentState == MediaElementState.Playing)
+            _positionTimer?.Start();
+        else
+            _positionTimer?.Stop();
+    }
+
+    private void Media_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+        App.LogWarn($"[Player] >>> MediaFailed: {e.ErrorMessage} <<<");
+        ViewModel.IsBuffering = false;
+        ViewModel.IsPlaying = false;
+    }
+
+    private void Media_MediaEnded(object sender, RoutedEventArgs e)
+    {
+        App.Log("[Player] >>> MediaEnded <<<");
+        ViewModel.IsPlaying = false;
+    }
+
+    // ═════ Transport Controls ═════
 
     private void ShowTransport()
     {
@@ -56,19 +148,48 @@ public sealed partial class PlayerPage : Page
         _hideTimer?.Start();
     }
 
-    // ═════ Transport Controls ═════
-
     private void PlayPause_Click(object sender, RoutedEventArgs e)
     {
-        ViewModel.TogglePlayPauseCommand.Execute(null);
-        PlayPauseIcon.Glyph = ViewModel.IsPlaying ? "\uE769" : "\uE768";
+        App.Log($"[Player] PlayPause: current={MediaElement.CurrentState}");
+        if (MediaElement.CurrentState == MediaElementState.Playing)
+        {
+            MediaElement.Pause();
+        }
+        else if (MediaElement.CurrentState == MediaElementState.Paused)
+        {
+            App.Log("[Player] Calling Play()...");
+            MediaElement.Play();
+            App.Log($"[Player] After Play(): {MediaElement.CurrentState}");
+        }
+        else if (MediaElement.CurrentState == MediaElementState.Stopped)
+        {
+            App.Log("[Player] Calling Play() from Stopped...");
+            MediaElement.Play();
+            App.Log($"[Player] After Play(): {MediaElement.CurrentState}");
+        }
         ShowTransport();
     }
 
-    private void SeekForward_Click(object sender, RoutedEventArgs e) { ViewModel.SeekForwardCommand.Execute(null); ShowTransport(); }
-    private void SeekBack_Click(object sender, RoutedEventArgs e) { ViewModel.SeekBackwardCommand.Execute(null); ShowTransport(); }
-    private void Rewind_Click(object sender, RoutedEventArgs e) { ViewModel.SeekBackwardCommand.Execute(null); ViewModel.SeekBackwardCommand.Execute(null); ShowTransport(); }
-    private void Forward_Click(object sender, RoutedEventArgs e) { ViewModel.SeekForwardCommand.Execute(null); ViewModel.SeekForwardCommand.Execute(null); ShowTransport(); }
+    private void SeekForward_Click(object sender, RoutedEventArgs e)
+    {
+        MediaElement.Position += TimeSpan.FromSeconds(10);
+        ShowTransport();
+    }
+    private void SeekBack_Click(object sender, RoutedEventArgs e)
+    {
+        MediaElement.Position -= TimeSpan.FromSeconds(10);
+        ShowTransport();
+    }
+    private void Rewind_Click(object sender, RoutedEventArgs e)
+    {
+        MediaElement.Position -= TimeSpan.FromSeconds(20);
+        ShowTransport();
+    }
+    private void Forward_Click(object sender, RoutedEventArgs e)
+    {
+        MediaElement.Position += TimeSpan.FromSeconds(20);
+        ShowTransport();
+    }
     private void Back_Click(object sender, RoutedEventArgs e) => ViewModel.StopCommand.Execute(null);
 
     // ═════ Track Selection ═════
@@ -102,4 +223,10 @@ public sealed partial class PlayerPage : Page
     }
 
     protected override void OnPointerMoved(PointerRoutedEventArgs e) => ShowTransport();
+
+    private static string FormatTime(TimeSpan ts)
+    {
+        if (ts.TotalHours >= 1) return $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}";
+        return $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
 }

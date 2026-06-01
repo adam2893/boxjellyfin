@@ -50,6 +50,7 @@ public sealed partial class LibraryPage : Page
 
     private void Item_Click(object sender, ItemClickEventArgs e)
     {
+        App.Log($"[Click] LibraryPage item: {(e.ClickedItem as BaseItemDto)?.Name ?? e.ClickedItem?.GetType().Name ?? "null"}");
         if (e.ClickedItem is BaseItemDto item)
             ViewModel.NavigateToItemCommand.Execute(item);
     }

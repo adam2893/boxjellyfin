@@ -24,12 +24,14 @@ public sealed partial class HomePage : Page
 
     private void MediaItem_Click(object sender, ItemClickEventArgs e)
     {
+        App.Log($"[Click] HomePage item: {(e.ClickedItem as BaseItemDto)?.Name ?? e.ClickedItem?.GetType().Name ?? "null"}");
         if (e.ClickedItem is BaseItemDto item)
             ViewModel.NavigateToItemCommand.Execute(item);
     }
 
     private void Library_Click(object sender, ItemClickEventArgs e)
     {
+        App.Log($"[Click] Library: {(e.ClickedItem as ViewItem)?.Name ?? e.ClickedItem?.GetType().Name ?? "null"}");
         if (e.ClickedItem is ViewItem view)
             ViewModel.NavigateToLibraryCommand.Execute(view);
     }

@@ -64,7 +64,7 @@
                         <Border Width="160" Height="240"
                                 CornerRadius="12"
                                 Background="{StaticResource SurfaceTertiaryBrush}">
-                            <Image Source="{Binding ., Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
+                            <Image Source="{Binding Converter={StaticResource ItemImageConverter}, ConverterParameter=300}"
                                    Stretch="UniformToFill" />
                         </Border>
                         <TextBlock Text="{Binding Name}"
@@ -81,3 +81,4 @@
         </GridView>
     </Grid>
 </Page>
+

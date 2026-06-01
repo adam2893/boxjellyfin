@@ -50,10 +50,17 @@ public class HomeViewModel : ObservableObject
         };
     }
 
+    private bool _loaded;
+
     public async Task LoadDataAsync()
     {
         if (!_api.IsAuthenticated) return;
+        if (_loaded) { App.Log("[Home] Skipping reload — already loaded"); return; }
+        _loaded = true;
+
         IsLoading = true;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        App.Log($"[Home] LoadDataAsync started");
 
         try
         {
@@ -62,8 +69,8 @@ public class HomeViewModel : ObservableObject
             var viewsTask = _api.GetViewsAsync();
             await Task.WhenAll(resumeTask, nextUpTask, viewsTask);
 
-            App.Log($"[Home] Resume items: {resumeTask.Result.Items.Count}");
-            App.Log($"[Home] NextUp items: {nextUpTask.Result.Items.Count}");
+            sw.Stop();
+            App.Log($"[Home] Base data loaded in {sw.ElapsedMilliseconds}ms — Resume: {resumeTask.Result.Items.Count}, NextUp: {nextUpTask.Result.Items.Count}, Views: {viewsTask.Result.Count}");
 
             ContinueWatching.Clear();
             foreach (var item in resumeTask.Result.Items) ContinueWatching.Add(item);
@@ -97,10 +104,10 @@ public class HomeViewModel : ObservableObject
             var showTask = showLib != null
                 ? _api.GetItemsAsync(showLib.Id, sortBy: "DateCreated", sortOrder: "Descending", limit: 12, includeItemTypes: "Series")
                 : Task.FromResult(new ItemsResult());
+            sw.Restart();
             await Task.WhenAll(movieTask, showTask);
-
-            App.Log($"[Home] Latest movies: {movieTask.Result.Items.Count}");
-            App.Log($"[Home] Latest shows: {showTask.Result.Items.Count}");
+            sw.Stop();
+            App.Log($"[Home] Latest movies/shows loaded in {sw.ElapsedMilliseconds}ms — Movies: {movieTask.Result.Items.Count}, Shows: {showTask.Result.Items.Count}");
 
             foreach (var item in movieTask.Result.Items) LatestMovies.Add(item);
             foreach (var item in showTask.Result.Items) LatestShows.Add(item);

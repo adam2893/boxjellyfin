@@ -16,7 +16,6 @@ public partial class App : Application
 {
     private static readonly Dictionary<Type, object> _services = new();
     private static readonly object _logLock = new();
-    private static string? _logPath;
     private static readonly Dictionary<Type, Func<object>> _factories = new();
 
     public static T GetService<T>() where T : class => (T)_services[typeof(T)];
@@ -25,14 +24,25 @@ public partial class App : Application
     {
         this.InitializeComponent();
         this.UnhandledException += OnUnhandledException;
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (s, e) =>
+        {
+            LogWarn($"[TASK-CRASH] {e.Exception.GetType().Name}: {e.Exception.Message}");
+            LogWarn($"[TASK-CRASH] Stack: {e.Exception.StackTrace}");
+            e.SetObserved();
+        };
         RegisterServices();
     }
 
     private static void OnUnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
     {
-        System.Diagnostics.Debug.WriteLine($"[CRASH] {e.Exception.GetType().Name}: {e.Exception.Message}");
-        System.Diagnostics.Debug.WriteLine($"[CRASH] Stack: {e.Exception.StackTrace}");
-        e.Handled = true; // Prevent silent kill — app will stay alive so we can see error
+        var msg = $"[CRASH] {e.Exception.GetType().Name}: {e.Exception.Message}";
+        var stack = $"[CRASH] Stack: {e.Exception.StackTrace}";
+        System.Diagnostics.Debug.WriteLine(msg);
+        System.Diagnostics.Debug.WriteLine(stack);
+        // Also write to file log so we can see what killed us
+        LogWarn(msg);
+        LogWarn(stack);
+        e.Handled = true;
     }
 
     private static void RegisterServices()
@@ -110,26 +120,29 @@ public partial class App : Application
     // ═══════════════════════════════════════════════════════════════
     // File-based logging (Xbox can't see Debug output)
     // Log file: ApplicationData.LocalFolder\jellyfinxbox.log
+    // Uses StreamWriter with AutoFlush so crash doesn't eat buffered entries
     // ═══════════════════════════════════════════════════════════════
+    private static StreamWriter? _logWriter;
+    private static string? _logPath;
+
     private static void InitLogging()
     {
         try
         {
             _logPath = Path.Combine(ApplicationData.Current.LocalFolder.Path, "jellyfinxbox.log");
-            var ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            File.WriteAllText(_logPath, $"[{ts}] JellyfinXbox v1.0.6.6 started{Environment.NewLine}");
+            _logWriter = new StreamWriter(_logPath, append: false) { AutoFlush = true };
+            _logWriter.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] JellyfinXbox v1.0.6.25 started");
         }
-        catch { _logPath = null; }
+        catch { _logPath = null; _logWriter = null; }
     }
 
     public static void Log(string message)
     {
         try
         {
-            if (_logPath == null) return;
-            var ts = DateTime.Now.ToString("HH:mm:ss");
+            if (_logWriter == null) return;
             lock (_logLock)
-                File.AppendAllText(_logPath, $"[{ts}] {message}{Environment.NewLine}");
+                _logWriter.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
         }
         catch { }
     }
@@ -138,10 +151,9 @@ public partial class App : Application
     {
         try
         {
-            if (_logPath == null) return;
-            var ts = DateTime.Now.ToString("HH:mm:ss");
+            if (_logWriter == null) return;
             lock (_logLock)
-                File.AppendAllText(_logPath, $"[{ts}] WARN {message}{Environment.NewLine}");
+                _logWriter.WriteLine($"[{DateTime.Now:HH:mm:ss}] WARN {message}");
         }
         catch { }
     }

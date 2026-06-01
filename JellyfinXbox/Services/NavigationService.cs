@@ -24,29 +24,69 @@ public class NavigationService
     /// </summary>
     public void NavigateTo(Type pageType, object? parameter = null)
     {
-        if (_frame == null) return;
+        if (_frame == null) { App.LogWarn("[Nav] Frame is null — cannot navigate"); return; }
 
-        // Don't push if target is a root page (stack gets cleared anyway)
-        // or if the current content is already the same type
+        var currentType = _frame.Content?.GetType();
+        App.Log($"[Nav] NavigateTo: {currentType?.Name ?? "null"} → {pageType.Name}, param={parameter?.GetType().Name ?? "null"}");
+
+        // Don't navigate if we're already on the target page type
+        if (currentType == pageType)
+        {
+            App.Log($"[Nav] Already on {pageType.Name} — skipping");
+            return;
+        }
+
+        // Don't push root pages to back stack
         var isRoot = pageType == typeof(ConnectPage) || pageType == typeof(HomePage);
-        var isSameType = _frame.Content?.GetType() == pageType;
 
-        if (!isRoot && !isSameType && _frame.Content is Page currentPage)
+        if (!isRoot && _frame.Content is Page currentPage)
             _backStack.Push(currentPage);
 
         // Create new page via DI (constructor injection)
-        var page = App.Create(pageType) as Page;
-        if (page == null) return;
+        Page? page = null;
+        try
+        {
+            page = App.Create(pageType) as Page;
+        }
+        catch (Exception ex)
+        {
+            App.LogWarn($"[Nav] Failed to create {pageType.Name}: {ex.GetType().Name}: {ex.Message}");
+            // Pop the page we just pushed (clean up back stack)
+            if (!isRoot && _backStack.Count > 0) _backStack.Pop();
+            return;
+        }
+
+        if (page == null)
+        {
+            App.LogWarn($"[Nav] App.Create returned null for {pageType.Name}");
+            if (!isRoot && _backStack.Count > 0) _backStack.Pop();
+            return;
+        }
+
+        App.Log($"[Nav] Created {pageType.Name} successfully");
 
         // Pass parameters
         if (parameter != null)
         {
             if (page is LibraryPage libPage && parameter is ValueTuple<string, string> libTuple)
+            {
                 libPage.Initialize(libTuple.Item1, libTuple.Item2);
+                App.Log($"[Nav] LibraryPage initialized: {libTuple.Item1}, {libTuple.Item2}");
+            }
             else if (page is MediaDetailPage detailPage && parameter is string itemId)
+            {
                 detailPage.Initialize(itemId);
+                App.Log($"[Nav] MediaDetailPage initialized with itemId={itemId}");
+            }
             else if (page is PlayerPage playerPage && parameter is string playerItemId)
+            {
                 playerPage.Initialize(playerItemId);
+                App.Log($"[Nav] PlayerPage initialized with itemId={playerItemId}");
+            }
+            else
+            {
+                App.LogWarn($"[Nav] Unhandled parameter type: {parameter.GetType().Name} for page {pageType.Name}");
+            }
         }
 
         // Clear the old back stack when navigating to a root page
@@ -55,6 +95,7 @@ public class NavigationService
 
         _frame.Content = page;
         _frame.Focus(FocusState.Programmatic);
+        App.Log($"[Nav] ✓ Navigation complete: {pageType.Name}");
     }
 
     /// <summary>
