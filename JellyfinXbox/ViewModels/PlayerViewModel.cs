@@ -206,18 +206,28 @@ public class PlayerViewModel : ObservableObject, IDisposable
         else
             url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
 
-        // Resume from saved position (Continue Watching)
+        // UWP MediaElement can't play MOV/QuickTime containers → force MP4 remux
+        var container = source.Container?.ToLowerInvariant() ?? "";
+        if (container.Contains("mov") && !container.Contains("mp4"))
+        {
+            url += "&Container=mp4";
+            App.Log("[Player] MOV container detected → forcing mp4 remux");
+        }
+
+        // Resume from saved position: force server to remux so startTimeTicks is respected
+        // Direct-play serves raw bytes → startTimeTicks is silently ignored
         if (resumeTicks.HasValue && resumeTicks.Value > 0)
         {
-            url += $"&startTimeTicks={resumeTicks.Value}";
-            App.Log($"[Player] Resume position: {TimeSpan.FromTicks(resumeTicks.Value)}");
+            url += $"&startTimeTicks={resumeTicks.Value}&allowDirectStream=false";
+            App.Log($"[Player] Resume position: {TimeSpan.FromTicks(resumeTicks.Value)} (remux forced)");
         }
 
         return url;
     }
 
     /// <summary>
-    /// Builds a seek URL using Jellyfin's startTimeTicks (camelCase for ASP.NET Core model binding).
+    /// Builds a seek URL. startTimeTicks only works when Jellyfin processes the stream
+    /// (not direct-play), so we force remux with allowDirectStream=false.
     /// </summary>
     public Uri? BuildSeekUrl(TimeSpan position)
     {
@@ -226,8 +236,8 @@ public class PlayerViewModel : ObservableObject, IDisposable
         {
             var baseUrl = BuildMediaUrl(_currentItemId, _currentMediaSource);
             var ticks = position.Ticks;
-            // startTimeTicks must be camelCase — ASP.NET Core model binding ignores PascalCase
-            var url = $"{baseUrl}&startTimeTicks={ticks}";
+            // allowDirectStream=false forces server to use FFmpeg → startTimeTicks (-ss) works
+            var url = $"{baseUrl}&startTimeTicks={ticks}&allowDirectStream=false";
             App.Log($"[Player] BuildSeekUrl: {url}");
             return new Uri(url);
         }
