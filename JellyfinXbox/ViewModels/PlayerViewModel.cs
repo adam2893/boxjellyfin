@@ -206,8 +206,9 @@ public class PlayerViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Builds a seek URL by adding StartTimeTicks to restart playback at a given position.
-    /// MediaElement.Position setter is unreliable for HTTP streaming on UWP.
+    /// Builds a seek URL by forcing Jellyfin to remux (not direct-play) with StartTimeTicks.
+    /// Direct-play serves raw file bytes ignoring StartTimeTicks entirely.
+    /// AllowVideoStreamCopy=false forces FFmpeg pipeline → -ss {ticks} is respected.
     /// </summary>
     public Uri? BuildSeekUrl(TimeSpan position)
     {
@@ -216,7 +217,9 @@ public class PlayerViewModel : ObservableObject, IDisposable
         {
             var baseUrl = BuildMediaUrl(_currentItemId, _currentMediaSource);
             var ticks = position.Ticks;
-            var url = $"{baseUrl}&StartTimeTicks={ticks}";
+            // Force remux (not direct play) so StartTimeTicks is passed to FFmpeg -ss
+            // _ts cache-buster prevents MediaElement from reusing buffered data
+            var url = $"{baseUrl}&StartTimeTicks={ticks}&AllowVideoStreamCopy=false&_ts={DateTime.UtcNow.Ticks}";
             App.Log($"[Player] BuildSeekUrl: {url}");
             return new Uri(url);
         }

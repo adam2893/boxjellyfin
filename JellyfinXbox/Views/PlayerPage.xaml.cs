@@ -114,10 +114,18 @@ public sealed partial class PlayerPage : Page
     private void Media_MediaOpened(object sender, RoutedEventArgs e)
     {
         App.Log($"[Player] >>> MediaOpened: {MediaElement.NaturalVideoWidth}x{MediaElement.NaturalVideoHeight} <<<");
-        // Duration is already set from API (streaming sources don't report it via MediaElement)
         ViewModel.HasVideo = MediaElement.NaturalVideoHeight > 0;
         ViewModel.IsBuffering = false;
-        _isSeeking = false;
+
+        if (_isSeeking)
+        {
+            _isSeeking = false;
+            if (_resumeAfterSeek)
+            {
+                App.Log("[Player] Seek complete, resuming playback");
+                MediaElement.Play();
+            }
+        }
     }
 
     private void Media_CurrentStateChanged(object sender, RoutedEventArgs e)
@@ -148,20 +156,18 @@ public sealed partial class PlayerPage : Page
 
     private DateTime _lastSeek;
     private bool _isSeeking;
+    private bool _resumeAfterSeek;
 
-    private async void DoSeek()
+    private void DoSeek()
     {
-        // Debounce: both ManipulationCompleted and PointerCaptureLost can fire
         if ((DateTime.UtcNow - _lastSeek).TotalMilliseconds < 300) return;
         if (_isSeeking) return;
         _lastSeek = DateTime.UtcNow;
 
         var newPos = TimeSpan.FromSeconds(SeekSlider.Value);
-        var wasPlaying = MediaElement.CurrentState == MediaElementState.Playing;
-        App.Log($"[Player] Seek to {newPos} (wasPlaying={wasPlaying})");
+        _resumeAfterSeek = MediaElement.CurrentState == MediaElementState.Playing;
+        App.Log($"[Player] Seek to {newPos} (resumeAfter={_resumeAfterSeek})");
 
-        // MediaElement.Position setter is unreliable for HTTP streaming on UWP.
-        // Instead, restart the stream with StartTimeTicks in the URL.
         var seekUrl = ViewModel.BuildSeekUrl(newPos);
         if (seekUrl == null) return;
 
@@ -170,17 +176,18 @@ public sealed partial class PlayerPage : Page
             _isSeeking = true;
             _positionTimer?.Stop();
             ViewModel.IsBuffering = true;
-            MediaElement.Stop();
-            MediaElement.Source = seekUrl;
             ViewModel.Position = newPos;
             ViewModel.PositionDisplay = FormatTime(newPos);
-            if (wasPlaying)
-                MediaElement.Play();
-            App.Log($"[Player] Seek restart: Source set, wasPlaying={wasPlaying}");
+            MediaElement.Stop();
+            MediaElement.Source = seekUrl;
+            // Don't call Play() here — MediaElement hasn't loaded the new source yet.
+            // Media_MediaOpened will resume playback if _resumeAfterSeek is true.
+            App.Log($"[Player] Seek restart: Source set, waiting for MediaOpened...");
         }
         catch (Exception ex)
         {
             App.LogWarn($"[Player] DoSeek EX: {ex.Message}");
+            _isSeeking = false;
         }
     }
 
