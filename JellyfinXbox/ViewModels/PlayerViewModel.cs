@@ -211,7 +211,7 @@ public class PlayerViewModel : ObservableObject, IDisposable
         var container = source.Container?.ToLowerInvariant() ?? "";
         if (container.StartsWith("mov,"))
         {
-            url += "&Container=mp4";
+            url += "&container=mp4";
             App.Log("[Player] MOV container → forcing mp4 remux");
         }
 
