@@ -202,19 +202,15 @@ public sealed partial class PlayerPage : Page
     private void PlayPause_Click(object sender, RoutedEventArgs e)
     {
         App.Log($"[Player] PlayPause: current={MediaElement.CurrentState}");
-        if (MediaElement.CurrentState == MediaElementState.Playing)
+        if (MediaElement.CurrentState == MediaElementState.Playing ||
+            MediaElement.CurrentState == MediaElementState.Buffering)
         {
             MediaElement.Pause();
         }
-        else if (MediaElement.CurrentState == MediaElementState.Paused)
+        else if (MediaElement.CurrentState == MediaElementState.Paused ||
+                 MediaElement.CurrentState == MediaElementState.Stopped)
         {
             App.Log("[Player] Calling Play()...");
-            MediaElement.Play();
-            App.Log($"[Player] After Play(): {MediaElement.CurrentState}");
-        }
-        else if (MediaElement.CurrentState == MediaElementState.Stopped)
-        {
-            App.Log("[Player] Calling Play() from Stopped...");
             MediaElement.Play();
             App.Log($"[Player] After Play(): {MediaElement.CurrentState}");
         }

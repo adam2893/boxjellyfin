@@ -197,6 +197,9 @@ public class PlayerViewModel : ObservableObject, IDisposable
         if (a != null) CurrentAudioCodec = a.Codec?.ToUpperInvariant() ?? "?";
     }
 
+    // Store video codec so seek/resume URLs can use same codec to force FFmpeg
+    private string? _videoCodec;
+
     private string BuildMediaUrl(string itemId, MediaSourceInfo source, long? resumeTicks = null)
     {
         var baseUrl = _api.ServerUrl;
@@ -206,28 +209,32 @@ public class PlayerViewModel : ObservableObject, IDisposable
         else
             url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
 
-        // UWP MediaElement can't play MOV/QuickTime containers → force MP4 remux
+        // Store video codec for seek URLs
+        _videoCodec = source.MediaStreams.FirstOrDefault(s => s.Type == "Video")?.Codec?.ToLowerInvariant();
+
+        // UWP MediaElement doesn't support MOV container → force mp4
         var container = source.Container?.ToLowerInvariant() ?? "";
-        if (container.Contains("mov") && !container.Contains("mp4"))
+        if (container.StartsWith("mov,"))
         {
             url += "&Container=mp4";
-            App.Log("[Player] MOV container detected → forcing mp4 remux");
+            App.Log("[Player] MOV container → forcing mp4 remux");
         }
 
-        // Resume from saved position: force server to remux so startTimeTicks is respected
-        // Direct-play serves raw bytes → startTimeTicks is silently ignored
+        // Resume: use startTimeTicks + VideoCodec=<same> to force FFmpeg without re-encoding
+        // Without VideoCodec, Jellyfin direct-plays → startTimeTicks is silently ignored
         if (resumeTicks.HasValue && resumeTicks.Value > 0)
         {
-            url += $"&startTimeTicks={resumeTicks.Value}&allowDirectStream=false";
-            App.Log($"[Player] Resume position: {TimeSpan.FromTicks(resumeTicks.Value)} (remux forced)");
+            var codecParam = !string.IsNullOrEmpty(_videoCodec) ? $"&VideoCodec={_videoCodec}" : "";
+            url += $"&startTimeTicks={resumeTicks.Value}{codecParam}";
+            App.Log($"[Player] Resume: {TimeSpan.FromTicks(resumeTicks.Value)} (videoCodec={_videoCodec ?? "none"})");
         }
 
         return url;
     }
 
     /// <summary>
-    /// Builds a seek URL. startTimeTicks only works when Jellyfin processes the stream
-    /// (not direct-play), so we force remux with allowDirectStream=false.
+    /// Builds a seek URL. Uses VideoCodec=<same> to force FFmpeg pipeline without re-encoding,
+    /// so startTimeTicks (-ss) is respected by the server.
     /// </summary>
     public Uri? BuildSeekUrl(TimeSpan position)
     {
@@ -236,8 +243,8 @@ public class PlayerViewModel : ObservableObject, IDisposable
         {
             var baseUrl = BuildMediaUrl(_currentItemId, _currentMediaSource);
             var ticks = position.Ticks;
-            // allowDirectStream=false forces server to use FFmpeg → startTimeTicks (-ss) works
-            var url = $"{baseUrl}&startTimeTicks={ticks}&allowDirectStream=false";
+            var codecParam = !string.IsNullOrEmpty(_videoCodec) ? $"&VideoCodec={_videoCodec}" : "";
+            var url = $"{baseUrl}&startTimeTicks={ticks}{codecParam}";
             App.Log($"[Player] BuildSeekUrl: {url}");
             return new Uri(url);
         }

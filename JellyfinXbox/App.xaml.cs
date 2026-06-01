@@ -130,8 +130,8 @@ public partial class App : Application
         try
         {
             _logPath = Path.Combine(ApplicationData.Current.LocalFolder.Path, "jellyfinxbox.log");
-            _logWriter = new StreamWriter(_logPath, append: false) { AutoFlush = true };
-            _logWriter.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] JellyfinXbox v1.0.6.34 started");
+            _logWriter = new StreamWriter(_logPath, append: true) { AutoFlush = true };
+            _logWriter.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] JellyfinXbox v1.0.6.35 started");
         }
         catch { _logPath = null; _logWriter = null; }
     }
