@@ -206,15 +206,6 @@ public class PlayerViewModel : ObservableObject, IDisposable
         else
             url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
 
-        // UWP MediaElement doesn't support HEVC/H.265 or AV1 — force transcode to H.264
-        var videoTrack = source.MediaStreams.FirstOrDefault(s => s.Type == "Video");
-        var codec = videoTrack?.Codec?.ToLowerInvariant();
-        if (codec == "hevc" || codec == "h265" || codec == "av1")
-        {
-            url += "&VideoCodec=h264";
-            App.Log($"[Player] Unsupported codec '{codec}' → forcing H.264 transcode");
-        }
-
         // Resume from saved position (Continue Watching)
         if (resumeTicks.HasValue && resumeTicks.Value > 0)
         {
@@ -227,7 +218,6 @@ public class PlayerViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// Builds a seek URL using Jellyfin's startTimeTicks (camelCase for ASP.NET Core model binding).
-    /// Forces VideoCodec=h264 to ensure the server uses FFmpeg — direct-play ignores startTimeTicks.
     /// </summary>
     public Uri? BuildSeekUrl(TimeSpan position)
     {
@@ -237,8 +227,7 @@ public class PlayerViewModel : ObservableObject, IDisposable
             var baseUrl = BuildMediaUrl(_currentItemId, _currentMediaSource);
             var ticks = position.Ticks;
             // startTimeTicks must be camelCase — ASP.NET Core model binding ignores PascalCase
-            // VideoCodec=h264 forces FFmpeg pipeline so startTimeTicks (-ss) is respected
-            var url = $"{baseUrl}&startTimeTicks={ticks}&VideoCodec=h264";
+            var url = $"{baseUrl}&startTimeTicks={ticks}";
             App.Log($"[Player] BuildSeekUrl: {url}");
             return new Uri(url);
         }

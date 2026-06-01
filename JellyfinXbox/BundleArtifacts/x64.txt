@@ -1,2 +1,2 @@
-MainPackage=C:\Users\Adam\.openclaw-autoclaw\agents\bestie-the-coder\workspace\JellyfinXbox\JellyfinXbox\bin\x64\Release\JellyfinXbox_1.0.6.32_x64.msix
-SymbolPackage=C:\Users\Adam\.openclaw-autoclaw\agents\bestie-the-coder\workspace\JellyfinXbox\JellyfinXbox\obj\x64\Release\Symbols\JellyfinXbox_1.0.6.32_x64.appxsym
+MainPackage=C:\Users\Adam\.openclaw-autoclaw\agents\bestie-the-coder\workspace\JellyfinXbox\JellyfinXbox\bin\x64\Release\JellyfinXbox_1.0.6.33_x64.msix
+SymbolPackage=C:\Users\Adam\.openclaw-autoclaw\agents\bestie-the-coder\workspace\JellyfinXbox\JellyfinXbox\obj\x64\Release\Symbols\JellyfinXbox_1.0.6.33_x64.appxsym
