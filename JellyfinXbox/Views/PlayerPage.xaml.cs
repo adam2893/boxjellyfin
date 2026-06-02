@@ -202,12 +202,13 @@ public sealed partial class PlayerPage : Page
         {
             MediaElement.Pause();
         }
-        else
+        else if (state == MediaElementState.Paused)
         {
             App.Log("[Player] Calling Play()...");
             MediaElement.Play();
             App.Log($"[Player] After Play(): {MediaElement.CurrentState}");
         }
+        // Closed/Opening/Stopped — ignore, nothing useful we can do
         ShowTransport();
     }
 

@@ -19,7 +19,7 @@ public class SettingsViewModel : ObservableObject
     private string _serverName = "";
     private string _serverVersion = "";
     private string _userName = "";
-    private string _clientVersion = "1.0.6.38";
+    private string _clientVersion = "1.0.6.39";
     private string _logPath = "";
     private int _selectedBitrateIndex;
     private int _selectedSubtitleModeIndex;

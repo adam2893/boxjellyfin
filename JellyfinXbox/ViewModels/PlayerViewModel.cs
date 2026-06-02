@@ -211,6 +211,14 @@ public class PlayerViewModel : ObservableObject, IDisposable
 
         var url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
 
+        // UWP MediaElement can't play MOV/QuickTime containers → force MP4 remux
+        var container = source.Container?.ToLowerInvariant() ?? "";
+        if (container.StartsWith("mov,"))
+        {
+            url += "&container=mp4";
+            App.Log("[Player] MOV container → forcing mp4 remux");
+        }
+
         // Store resume position for client-side seek after MediaOpened
         if (needsResume)
         {
