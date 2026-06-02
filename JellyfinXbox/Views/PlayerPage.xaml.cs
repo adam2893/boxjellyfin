@@ -112,30 +112,14 @@ public sealed partial class PlayerPage : Page
         ViewModel.HasVideo = MediaElement.NaturalVideoHeight > 0;
         ViewModel.IsBuffering = false;
 
-        // Apply resume position client-side (no server startTimeTicks — direct-play ignores it)
-        if (ViewModel.ResumePosition.HasValue && ViewModel.ResumePosition.Value.TotalSeconds > 1)
+        if (_isSeeking)
         {
-            var resumePos = ViewModel.ResumePosition.Value;
-            App.Log($"[Player] Applying resume position: {resumePos}");
-            // Delay to let the stream settle, then seek
-            var resumeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
-            resumeTimer.Tick += (s2, e2) =>
+            _isSeeking = false;
+            if (_resumeAfterSeek)
             {
-                resumeTimer.Stop();
-                try
-                {
-                    MediaElement.Pause();
-                    MediaElement.Position = resumePos;
-                    ViewModel.Position = resumePos;
-                    ViewModel.PositionDisplay = FormatTime(resumePos);
-                    App.Log($"[Player] Resume seek complete: pos={MediaElement.Position}");
-                }
-                catch (Exception ex)
-                {
-                    App.LogWarn($"[Player] Resume seek EX: {ex.Message}");
-                }
-            };
-            resumeTimer.Start();
+                App.Log("[Player] Seek complete, resuming playback");
+                MediaElement.Play();
+            }
         }
     }
 
@@ -168,30 +152,37 @@ public sealed partial class PlayerPage : Page
     // ═════ Seek (Pause → Position → Play — no URL restart) ═════
 
     private DateTime _lastSeek;
+    private bool _isSeeking;
+    private bool _resumeAfterSeek;
 
     private void DoSeek()
     {
         if ((DateTime.UtcNow - _lastSeek).TotalMilliseconds < 500) return;
+        if (_isSeeking) return;
         _lastSeek = DateTime.UtcNow;
 
         var newPos = TimeSpan.FromSeconds(SeekSlider.Value);
-        var wasPlaying = MediaElement.CurrentState == MediaElementState.Playing;
-        App.Log($"[Player] Seek: Pause→Position={newPos}→Play (wasPlaying={wasPlaying})");
+        _resumeAfterSeek = MediaElement.CurrentState == MediaElementState.Playing;
+        App.Log($"[Player] Seek to {newPos} (resumeAfter={_resumeAfterSeek})");
+
+        var seekUrl = ViewModel.BuildSeekUrl(ViewModel.CurrentItemId!, ViewModel.CurrentMediaSource!, newPos);
+        if (seekUrl == null) return;
 
         try
         {
-            MediaElement.Pause();
-            MediaElement.Position = newPos;
+            _isSeeking = true;
+            _positionTimer?.Stop();
+            ViewModel.IsBuffering = true;
             ViewModel.Position = newPos;
             ViewModel.PositionDisplay = FormatTime(newPos);
-            App.Log($"[Player] After seek set: pos={MediaElement.Position}");
-
-            if (wasPlaying)
-                MediaElement.Play();
+            MediaElement.Stop();
+            MediaElement.Source = seekUrl;
+            App.Log($"[Player] Seek restart: Source set");
         }
         catch (Exception ex)
         {
             App.LogWarn($"[Player] DoSeek EX: {ex.Message}");
+            _isSeeking = false;
         }
     }
 

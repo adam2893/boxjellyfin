@@ -201,35 +201,52 @@ public class PlayerViewModel : ObservableObject, IDisposable
     private string BuildMediaUrl(string itemId, MediaSourceInfo source, long? resumeTicks = null)
     {
         var baseUrl = _api.ServerUrl;
-        string url;
-        if (source.SupportsDirectPlay && !string.IsNullOrEmpty(source.DirectStreamUrl))
-            url = $"{baseUrl}{source.DirectStreamUrl}&ApiKey={_api.AccessToken}";
-        else
-            url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
 
-        // UWP MediaElement doesn't support MOV container → force mp4
-        var container = source.Container?.ToLowerInvariant() ?? "";
-        if (container.StartsWith("mov,"))
-        {
-            url += "&container=mp4";
-            App.Log("[Player] MOV container → forcing mp4 remux");
-        }
+        // When resume/seek is needed, force the streaming API endpoint (not DirectStreamUrl).
+        // DirectStreamUrl is a raw file download link — FFmpeg never touches it,
+        // so startTimeTicks (-ss) is silently ignored.
+        var needsResume = resumeTicks.HasValue && resumeTicks.Value > 0;
+        if (!needsResume && source.SupportsDirectPlay && !string.IsNullOrEmpty(source.DirectStreamUrl))
+            return $"{baseUrl}{source.DirectStreamUrl}&ApiKey={_api.AccessToken}";
+
+        var url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
 
         // Store resume position for client-side seek after MediaOpened
-        if (resumeTicks.HasValue && resumeTicks.Value > 0)
+        if (needsResume)
         {
-            _resumePosition = TimeSpan.FromTicks(resumeTicks.Value);
-            App.Log($"[Player] Resume position stored: {_resumePosition}");
+            var pos = TimeSpan.FromTicks(resumeTicks.Value);
+            url += $"&startTimeTicks={resumeTicks.Value}";
+            App.Log($"[Player] Resume: {pos} (using stream API, NOT DirectStreamUrl)");
         }
 
         return url;
     }
 
     /// <summary>
-    /// Stored resume position — PlayerPage applies this after MediaOpened via Pause→Position→Play.
-    /// No server-side startTimeTicks — direct-play ignores it and parameter hacks break playback.
+    /// Current item ID and media source — exposed for seek URL construction.
     /// </summary>
-    public TimeSpan? ResumePosition => _resumePosition;
+    public string? CurrentItemId => _currentItemId;
+    public MediaSourceInfo? CurrentMediaSource => _currentMediaSource;
+
+    /// <summary>
+    /// Builds a seek URL. Forces the streaming API endpoint so startTimeTicks works.
+    /// </summary>
+    public Uri? BuildSeekUrl(string itemId, MediaSourceInfo source, TimeSpan position)
+    {
+        try
+        {
+            var baseUrl = _api.ServerUrl;
+            var ticks = position.Ticks;
+            var url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}&startTimeTicks={ticks}";
+            App.Log($"[Player] BuildSeekUrl: {url}");
+            return new Uri(url);
+        }
+        catch (Exception ex)
+        {
+            App.LogWarn($"[Player] BuildSeekUrl EX: {ex.Message}");
+            return null;
+        }
+    }
 
     private async Task ReportProgress()
     {
