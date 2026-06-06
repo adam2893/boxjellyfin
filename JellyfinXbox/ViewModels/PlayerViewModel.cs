@@ -52,6 +52,7 @@ public class PlayerViewModel : ObservableObject, IDisposable
     public string Title { get => _title; set => SetProperty(ref _title, value); }
     public string Subtitle { get => _subtitle; set => SetProperty(ref _subtitle, value); }
     public TimeSpan Position { get => _position; set => SetProperty(ref _position, value); }
+    public TimeSpan StreamStartOffset { get; set; }
     public TimeSpan Duration { get => _duration; set => SetProperty(ref _duration, value); }
     public string PositionDisplay { get => _positionDisplay; set => SetProperty(ref _positionDisplay, value); }
     public string DurationDisplay { get => _durationDisplay; set => SetProperty(ref _durationDisplay, value); }
@@ -142,7 +143,9 @@ public class PlayerViewModel : ObservableObject, IDisposable
             _trackSelection.LoadTracks(source);
             App.Log($"[Player] Tracks: audio={_trackSelection.AudioTracks.Count}, subtitle={_trackSelection.SubtitleTracks.Count}");
 
-            var url = BuildMediaUrl(itemId, source, item.UserData?.PlaybackPositionTicks);
+            var resumeTicks = item.UserData?.PlaybackPositionTicks;
+            var url = BuildMediaUrl(itemId, source, resumeTicks);
+            StreamStartOffset = resumeTicks.HasValue ? TimeSpan.FromTicks(resumeTicks.Value) : TimeSpan.Zero;
             App.Log($"[Player] URL: {url}");
             _currentUri = new Uri(url);
 
@@ -198,54 +201,59 @@ public class PlayerViewModel : ObservableObject, IDisposable
         if (a != null) CurrentAudioCodec = a.Codec?.ToUpperInvariant() ?? "?";
     }
 
-    private string BuildMediaUrl(string itemId, MediaSourceInfo source, long? resumeTicks = null)
+    /// <summary>
+    /// Builds the streaming API URL. When forceTranscode is true, adds VideoCodec/AudioCodec
+    /// params so the Jellyfin server transcodes through FFmpeg, which honours startTimeTicks.
+    /// Direct-play streams ignore startTimeTicks because FFmpeg never touches them.
+    /// </summary>
+    private string BuildStreamUrl(string itemId, MediaSourceInfo source, bool forceTranscode)
     {
-        var baseUrl = _api.ServerUrl;
+        var url = $"{_api.ServerUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
 
-        // When resume/seek is needed, force the streaming API endpoint (not DirectStreamUrl).
-        // DirectStreamUrl is a raw file download link — FFmpeg never touches it,
-        // so startTimeTicks (-ss) is silently ignored.
-        var needsResume = resumeTicks.HasValue && resumeTicks.Value > 0;
-        if (!needsResume && source.SupportsDirectPlay && !string.IsNullOrEmpty(source.DirectStreamUrl))
-            return $"{baseUrl}{source.DirectStreamUrl}&ApiKey={_api.AccessToken}";
-
-        var url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}";
-
-        // UWP MediaElement can't play MOV/QuickTime containers → force MP4 remux
         var container = source.Container?.ToLowerInvariant() ?? "";
         if (container.StartsWith("mov,"))
         {
             url += "&container=mp4";
-            App.Log("[Player] MOV container → forcing mp4 remux");
+            App.Log("[Player] MOV → forcing mp4 remux");
         }
 
-        // Store resume position for client-side seek after MediaOpened
-        if (needsResume)
+        if (forceTranscode)
         {
-            var pos = TimeSpan.FromTicks(resumeTicks.Value);
-            url += $"&startTimeTicks={resumeTicks.Value}";
-            App.Log($"[Player] Resume: {pos} (using stream API, NOT DirectStreamUrl)");
+            url += "&VideoCodec=h264&AudioCodec=aac";
+            App.Log("[Player] Force-transcode so startTimeTicks is honoured");
         }
 
         return url;
     }
 
-    /// <summary>
-    /// Current item ID and media source — exposed for seek URL construction.
-    /// </summary>
+    private string BuildMediaUrl(string itemId, MediaSourceInfo source, long? resumeTicks = null)
+    {
+        var needsResume = resumeTicks.HasValue && resumeTicks.Value > 0;
+
+        // DirectPlay only when no resume needed
+        if (!needsResume && source.SupportsDirectPlay && !string.IsNullOrEmpty(source.DirectStreamUrl))
+            return $"{_api.ServerUrl}{source.DirectStreamUrl}&ApiKey={_api.AccessToken}";
+
+        var url = BuildStreamUrl(itemId, source, forceTranscode: needsResume);
+
+        if (needsResume)
+        {
+            url += $"&startTimeTicks={resumeTicks.Value}";
+            App.Log($"[Player] Resume: {TimeSpan.FromTicks(resumeTicks.Value)}");
+        }
+
+        return url;
+    }
+
     public string? CurrentItemId => _currentItemId;
     public MediaSourceInfo? CurrentMediaSource => _currentMediaSource;
 
-    /// <summary>
-    /// Builds a seek URL. Forces the streaming API endpoint so startTimeTicks works.
-    /// </summary>
     public Uri? BuildSeekUrl(string itemId, MediaSourceInfo source, TimeSpan position)
     {
         try
         {
-            var baseUrl = _api.ServerUrl;
-            var ticks = position.Ticks;
-            var url = $"{baseUrl}/Videos/{itemId}/stream?MediaSourceId={source.Id}&ApiKey={_api.AccessToken}&startTimeTicks={ticks}";
+            var url = BuildStreamUrl(itemId, source, forceTranscode: true);
+            url += $"&startTimeTicks={position.Ticks}";
             App.Log($"[Player] BuildSeekUrl: {url}");
             return new Uri(url);
         }

@@ -25,22 +25,27 @@
                 <TextBlock Text="J" FontSize="36" FontWeight="Bold"
                            Foreground="{StaticResource AccentBrush}"
                            HorizontalAlignment="Center" Margin="0 0 0 16" />
-                <TextBlock Text="BoxJellyfin" FontSize="10"
+                <TextBlock Text="BoxJellyfin" FontSize="18"
                            Foreground="{StaticResource TextMutedBrush}"
                            HorizontalAlignment="Center" Margin="0 0 0 32" />
 
                 <Button x:Name="NavHome" Tag="home"
+                        Style="{StaticResource XboxButtonStyle}"
                         Click="NavButton_Click"
                         Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
-                        FontSize="16" FontWeight="SemiBold"
-                        HorizontalAlignment="Stretch" Padding="0 12">
+                        FontWeight="SemiBold"
+                        HorizontalAlignment="Stretch" Padding="0 12"
+                        XYFocusDown="{Binding ElementName=NavSearch}">
                     Home
                 </Button>
                 <Button x:Name="NavSearch" Tag="search"
+                        Style="{StaticResource XboxButtonStyle}"
                         Click="NavButton_Click"
                         Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
-                        FontSize="16" FontWeight="SemiBold"
-                        HorizontalAlignment="Stretch" Padding="0 12">
+                        FontWeight="SemiBold"
+                        HorizontalAlignment="Stretch" Padding="0 12"
+                        XYFocusUp="{Binding ElementName=NavHome}"
+                        XYFocusDown="{Binding ElementName=NavQuickConnect}">
                     Search
                 </Button>
             </StackPanel>
@@ -49,17 +54,22 @@
             <StackPanel Grid.Row="1" VerticalAlignment="Bottom" Spacing="32"
                         Padding="0 0 0 80">
                 <Button x:Name="NavQuickConnect" Tag="quickconnect"
+                        Style="{StaticResource XboxButtonStyle}"
                         Click="NavButton_Click"
                         Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
-                        FontSize="14" FontWeight="SemiBold"
-                        HorizontalAlignment="Stretch" Padding="0 12">
+                        FontWeight="SemiBold"
+                        HorizontalAlignment="Stretch" Padding="0 12"
+                        XYFocusUp="{Binding ElementName=NavSearch}"
+                        XYFocusDown="{Binding ElementName=NavSettings}">
                     Connect
                 </Button>
                 <Button x:Name="NavSettings" Tag="settings"
+                        Style="{StaticResource XboxButtonStyle}"
                         Click="NavButton_Click"
                         Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
-                        FontSize="14" FontWeight="SemiBold"
-                        HorizontalAlignment="Stretch" Padding="0 12">
+                        FontWeight="SemiBold"
+                        HorizontalAlignment="Stretch" Padding="0 12"
+                        XYFocusUp="{Binding ElementName=NavQuickConnect}">
                     Settings
                 </Button>
             </StackPanel>

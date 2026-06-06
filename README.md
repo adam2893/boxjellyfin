@@ -72,7 +72,7 @@ JellyfinXbox/
 - **Windows.Media.Playback** for native media pipeline
 - **Media Foundation** for codec support (AV1, HEVC, H264, OPUS, FLAC, etc.)
 - **Jellyfin REST API** — lightweight custom client
-- **DI** via Microsoft.Extensions.DependencyInjection
+- **DI** via hand-rolled service container
 
 ## 📋 Prerequisites
 
@@ -80,7 +80,7 @@ JellyfinXbox/
 2. **Visual Studio 2022** (17.0+)
 3. **UWP workload** installed via Visual Studio Installer
 4. **Windows SDK** 10.0.19041.0 or later
-5. **.NET 8.0** SDK
+5. **.NET 6.0** SDK
 6. **Xbox One/Xbox Series X/S** (for deployment)
    - Enable **Dev Mode** on the console (free, no dev account needed for sideloading)
 
@@ -119,7 +119,7 @@ dotnet build JellyfinXbox/JellyfinXbox/JellyfinXbox.csproj -c Debug -r win10-x64
 dotnet publish JellyfinXbox/JellyfinXbox/JellyfinXbox.csproj -c Release -r win10-x64
 
 # Use WinAppDeployCmd tool to deploy
-WinAppDeployCmd install -file JellyfinXbox/bin/Release/net8.0-windows10.0.19041.0/win10-x64/AppPackages/.../JellyfinXbox.appx -ip <XBOX_IP>
+WinAppDeployCmd install -file JellyfinXbox/JellyfinXbox/bin/x64/Release/JellyfinXbox_1.0.6.44_x64.msix -ip <XBOX_IP>
 ```
 
 ## 🎬 Media Codec Support

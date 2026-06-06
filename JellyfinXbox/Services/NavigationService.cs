@@ -15,6 +15,7 @@ public class NavigationService
 {
     private Frame? _frame;
     private readonly Stack<Page> _backStack = new();
+    private readonly Dictionary<Type, Page> _cachedRoots = new();
 
     public void Initialize(Frame frame) => _frame = frame;
 
@@ -25,6 +26,8 @@ public class NavigationService
     public void NavigateTo(Type pageType, object? parameter = null)
     {
         if (_frame == null) { App.LogWarn("[Nav] Frame is null — cannot navigate"); return; }
+
+        NotifyNavigatedAway();
 
         var currentType = _frame.Content?.GetType();
         App.Log($"[Nav] NavigateTo: {currentType?.Name ?? "null"} → {pageType.Name}, param={parameter?.GetType().Name ?? "null"}");
@@ -42,18 +45,27 @@ public class NavigationService
         if (!isRoot && _frame.Content is Page currentPage)
             _backStack.Push(currentPage);
 
-        // Create new page via DI (constructor injection)
+        // Reuse cached root pages to avoid full reload on every navigation
         Page? page = null;
-        try
+        if (isRoot && _cachedRoots.TryGetValue(pageType, out var cached))
         {
-            page = App.Create(pageType) as Page;
+            page = cached;
+            App.Log($"[Nav] Reusing cached {pageType.Name}");
         }
-        catch (Exception ex)
+        else
         {
-            App.LogWarn($"[Nav] Failed to create {pageType.Name}: {ex.GetType().Name}: {ex.Message}");
-            // Pop the page we just pushed (clean up back stack)
-            if (!isRoot && _backStack.Count > 0) _backStack.Pop();
-            return;
+            try
+            {
+                page = App.Create(pageType) as Page;
+                if (isRoot && page != null)
+                    _cachedRoots[pageType] = page;
+            }
+            catch (Exception ex)
+            {
+                App.LogWarn($"[Nav] Failed to create {pageType.Name}: {ex.GetType().Name}: {ex.Message}");
+                if (!isRoot && _backStack.Count > 0) _backStack.Pop();
+                return;
+            }
         }
 
         if (page == null)
@@ -114,4 +126,15 @@ public class NavigationService
     }
 
     public bool CanGoBack => _backStack.Count > 0;
+
+    public event Action<Type>? NavigatedAway;
+
+    /// <summary>
+    /// Notify the current page that it is being navigated away from.
+    /// </summary>
+    private void NotifyNavigatedAway()
+    {
+        if (_frame?.Content is Page current)
+            NavigatedAway?.Invoke(current.GetType());
+    }
 }

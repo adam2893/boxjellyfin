@@ -2,8 +2,6 @@ using Windows.UI.Xaml;
 using System;
 using Windows.Gaming.Input;
 using Windows.System;
-using Windows.Gaming.Input;
-using Windows.System;
 using System.Linq;
 
 namespace JellyfinXbox.Services;
@@ -49,7 +47,7 @@ public class GamepadService : IDisposable
 
         _pollTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(50) // 20Hz poll rate
+            Interval = TimeSpan.FromMilliseconds(16) // ~60Hz poll rate
         };
         _pollTimer.Tick += PollTimer_Tick;
         _pollTimer.Start();

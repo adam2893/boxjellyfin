@@ -33,16 +33,18 @@ public sealed partial class PlayerPage : Page
         _positionTimer.Tick += (s, e) =>
         {
             if (ViewModel.Duration.TotalSeconds < 0.5) return;
-            var realPos = MediaElement.Position.TotalSeconds;
-            var sliderDelta = Math.Abs(SeekSlider.Value - realPos);
+            var offset = ViewModel.StreamStartOffset;
+            var displayPos = MediaElement.Position + offset;
+            var displaySeconds = displayPos.TotalSeconds;
 
-            if (sliderDelta < 1.5)
+            // Don't fight the user while they're dragging the slider
+            if (!_isSeeking)
             {
                 SeekSlider.Maximum = ViewModel.Duration.TotalSeconds;
-                SeekSlider.Value = realPos;
+                SeekSlider.Value = displaySeconds;
             }
-            ViewModel.Position = MediaElement.Position;
-            ViewModel.PositionDisplay = FormatTime(MediaElement.Position);
+            ViewModel.Position = displayPos;
+            ViewModel.PositionDisplay = FormatTime(displayPos);
         };
 
         Loaded += OnLoaded;
@@ -112,10 +114,14 @@ public sealed partial class PlayerPage : Page
         ViewModel.HasVideo = MediaElement.NaturalVideoHeight > 0;
         ViewModel.IsBuffering = false;
 
+        // Initialize slider to the stream's start position (offset for resume/seek)
+        SeekSlider.Maximum = ViewModel.Duration.TotalSeconds;
+        SeekSlider.Value = ViewModel.StreamStartOffset.TotalSeconds;
+
         if (_isSeeking)
         {
             _isSeeking = false;
-            if (_resumeAfterSeek)
+            if (_resumeAfterSeek && !_userPressedPause)
             {
                 App.Log("[Player] Seek complete, resuming playback");
                 MediaElement.Play();
@@ -154,6 +160,7 @@ public sealed partial class PlayerPage : Page
     private DateTime _lastSeek;
     private bool _isSeeking;
     private bool _resumeAfterSeek;
+    private bool _userPressedPause;
 
     private void DoSeek()
     {
@@ -173,16 +180,18 @@ public sealed partial class PlayerPage : Page
             _isSeeking = true;
             _positionTimer?.Stop();
             ViewModel.IsBuffering = true;
+            ViewModel.StreamStartOffset = newPos;
             ViewModel.Position = newPos;
             ViewModel.PositionDisplay = FormatTime(newPos);
             MediaElement.Stop();
             MediaElement.Source = seekUrl;
-            App.Log($"[Player] Seek restart: Source set");
+            App.Log("[Player] Seek restart: Source set");
         }
         catch (Exception ex)
         {
             App.LogWarn($"[Player] DoSeek EX: {ex.Message}");
             _isSeeking = false;
+            _resumeAfterSeek = false;
         }
     }
 
@@ -196,19 +205,21 @@ public sealed partial class PlayerPage : Page
 
     private void PlayPause_Click(object sender, RoutedEventArgs e)
     {
+        // Don't interfere with an in-progress seek operation
+        if (_isSeeking) return;
+
         var state = MediaElement.CurrentState;
         App.Log($"[Player] PlayPause: current={state}");
         if (state == MediaElementState.Playing || state == MediaElementState.Buffering)
         {
             MediaElement.Pause();
+            _userPressedPause = true;
         }
         else if (state == MediaElementState.Paused)
         {
-            App.Log("[Player] Calling Play()...");
+            _userPressedPause = false;
             MediaElement.Play();
-            App.Log($"[Player] After Play(): {MediaElement.CurrentState}");
         }
-        // Closed/Opening/Stopped — ignore, nothing useful we can do
         ShowTransport();
     }
 

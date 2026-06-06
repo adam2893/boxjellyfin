@@ -49,6 +49,9 @@
             <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Success}" />
             <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource Warning}" />
 
+            <SolidColorBrush x:Key="FocusVisualPrimaryBrush" Color="#6C63FF" />
+            <SolidColorBrush x:Key="FocusVisualSecondaryBrush" Color="#F0EFF4" />
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>

@@ -90,7 +90,7 @@
                     FontSize="18"
                     HorizontalAlignment="Stretch"
                     Padding="0 14" CornerRadius="8"
-                    Visibility="{x:Bind ViewModel.IsQuickConnectEnabled, Mode=OneWay}" />
+                    Visibility="{x:Bind ViewModel.IsQuickConnectEnabled, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
 
         </StackPanel>
     </Grid>

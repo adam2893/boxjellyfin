@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Media.Imaging;
@@ -89,60 +90,44 @@ public class TicksToTimeSpanConverter : IValueConverter
 
 public class ItemImageConverter : IValueConverter
 {
-    public ItemImageConverter()
-    {
-        App.Log("[Image] Converter instance created");
-    }
+    private static readonly Dictionary<string, BitmapImage> _cache = new();
 
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        App.Log($"[Image] Convert called — value type: {value?.GetType().Name ?? "null"}, target: {targetType.Name}");
         try
         {
-            if (value is not BaseItemDto item)
-            {
-                App.Log($"[Image] Not a BaseItemDto: {value?.GetType().Name ?? "null"}");
+            if (value is not BaseItemDto item || string.IsNullOrEmpty(item.Id))
                 return null;
-            }
-            if (string.IsNullOrEmpty(item.Id))
-            {
-                App.Log($"[Image] Item has empty Id: '{item.Name}'");
-                return null;
-            }
-
-            var api = App.GetService<JellyfinApiClient>();
-            if (string.IsNullOrEmpty(api.AccessToken))
-            {
-                App.Log($"[Image] No AccessToken yet for '{item.Name}'");
-                return null;
-            }
-            if (string.IsNullOrEmpty(api.ServerUrl))
-            {
-                App.Log($"[Image] No ServerUrl yet for '{item.Name}'");
-                return null;
-            }
 
             if (item.ImageTags == null || !item.ImageTags.TryGetValue("Primary", out var tag))
-            {
-                App.Log($"[Image] No Primary tag for '{item.Name}' (ImageTags count={item.ImageTags?.Count ?? 0})");
                 return null;
-            }
+
+            var api = App.GetService<JellyfinApiClient>();
+            if (string.IsNullOrEmpty(api.AccessToken) || string.IsNullOrEmpty(api.ServerUrl))
+                return null;
 
             var maxWidth = parameter is string w && int.TryParse(w, out var p) ? p : 400;
-            var imagePath = api.GetImageUrl(item.Id, "Primary", maxWidth, tag: tag);
-            var fullUrl = $"{api.ServerUrl}{imagePath}";
-            App.Log($"[Image] Loading: {fullUrl}");
+            var fullUrl = $"{api.ServerUrl}{api.GetImageUrl(item.Id, "Primary", maxWidth, tag: tag)}";
+
+            lock (_cache)
+            {
+                if (_cache.TryGetValue(fullUrl, out var cached))
+                    return cached;
+            }
 
             var bitmap = new BitmapImage { DecodePixelWidth = maxWidth };
-            bitmap.ImageFailed += (s, e) => App.LogWarn($"[Image] Download failed: {e.ErrorMessage}");
+            bitmap.ImageFailed += (s, e) => App.LogWarn($"[Image] Failed: {e.ErrorMessage}");
             bitmap.UriSource = new Uri(fullUrl);
+
+            lock (_cache)
+            {
+                _cache[fullUrl] = bitmap;
+                if (_cache.Count > 500) _cache.Clear(); // prevent unbounded growth
+            }
+
             return bitmap;
         }
-        catch (Exception ex)
-        {
-            App.LogWarn($"[Image] Converter crashed: {ex.GetType().Name}: {ex.Message}");
-            return null;
-        }
+        catch { return null; }
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)
